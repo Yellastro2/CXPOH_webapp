@@ -1,0 +1,5 @@
+{
+  "name": "TG Gallery",
+  "description": "A Telegram-style gallery web app with folder creation capabilities.",
+  "requestFramePermissions": []
+}
