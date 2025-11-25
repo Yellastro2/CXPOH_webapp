@@ -5,16 +5,18 @@ import { Modal } from './components/Modal';
 import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
 import { PlusIcon, PhotoIcon, FolderIcon, ChevronLeftIcon } from './components/Icons';
-import { fetchInitialImages } from './services/imageService';
+import { api } from './services/api'; // Use the API factory
 import { GalleryItem, ItemType } from './types';
-
-// Simple UUID generator for browser
-const generateId = () => Math.random().toString(36).substring(2, 9);
 
 function App() {
   const [items, setItems] = useState<GalleryItem[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
   
+  // Cache folder names for the header title (since we might not have the full folder object loaded in the current view)
+  const [folderTitleMap, setFolderTitleMap] = useState<Record<string, string>>({});
+  const [allFolders, setAllFolders] = useState<GalleryItem[]>([]); // For the picker
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -24,78 +26,111 @@ function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize with some images
+  // Load items when current folder changes
   useEffect(() => {
-    const urls = fetchInitialImages(10);
-    const initialItems: GalleryItem[] = urls.map(url => ({
-      id: generateId(),
-      type: ItemType.IMAGE,
-      url: url,
-      createdAt: Date.now()
-    }));
-    setItems(initialItems);
-  }, []);
+    loadItems();
+  }, [currentFolderId]);
 
-  // Get current folder object for title
+  // Load all folders whenever the folder picker is opened
+  useEffect(() => {
+    if (isFolderPickerOpen) {
+      loadAllFolders();
+    }
+  }, [isFolderPickerOpen]);
+
+  const loadItems = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getItems(currentFolderId);
+      setItems(data);
+      
+      // Update title map if we found folders
+      const newTitles: Record<string, string> = {};
+      data.forEach(item => {
+        if (item.type === ItemType.FOLDER && item.title) {
+          newTitles[item.id] = item.title;
+        }
+      });
+      setFolderTitleMap(prev => ({ ...prev, ...newTitles }));
+
+    } catch (error) {
+      console.error("Failed to load items", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllFolders = async () => {
+    try {
+      const folders = await api.getAllFolders();
+      setAllFolders(folders);
+      // Also update title map from this complete list to ensure we have titles for back navigation
+      const newTitles: Record<string, string> = {};
+      folders.forEach(f => {
+        if (f.title) newTitles[f.id] = f.title;
+      });
+      setFolderTitleMap(prev => ({ ...prev, ...newTitles }));
+    } catch (error) {
+      console.error("Failed to load folders", error);
+    }
+  };
+
+  // Find current folder parent ID for back navigation
+  // Since we only load current items, we need to look up the parent of the current folder.
+  // In a real app, `getItems` might return metadata about the current folder, or we'd have a `getFolderDetails` endpoint.
+  // For this Mock implementation, we'll rely on the `allFolders` cache or we might lose the parent reference if we refresh deep.
+  // To fix this simply: The API logic for `back` is tricky without a `getFolder(id)` method. 
+  // Let's iterate allFolders to find the current folder's parent.
   const currentFolder = useMemo(() => {
-    return items.find(i => i.id === currentFolderId);
-  }, [items, currentFolderId]);
+    return allFolders.find(f => f.id === currentFolderId);
+  }, [allFolders, currentFolderId]);
 
-  // Derived state: Items currently visible based on navigation
-  const visibleItems = useMemo(() => {
-    return items.filter(item => {
-      if (currentFolderId) {
-        return item.parentId === currentFolderId;
-      }
-      return !item.parentId;
-    });
-  }, [items, currentFolderId]);
+  // Ensure we have folder data. If allFolders is empty (first load deep), try to fetch them.
+  useEffect(() => {
+    if (currentFolderId && allFolders.length === 0) {
+      loadAllFolders();
+    }
+  }, [currentFolderId, allFolders.length]);
 
-  // Derived state: Images only (for the viewer navigation) in current scope
   const visibleImages = useMemo(() => {
-    return visibleItems.filter(item => item.type === ItemType.IMAGE);
-  }, [visibleItems]);
-
-  // Derived state: All available folders (for the picker)
-  // We exclude the current folder from destination list if needed, 
-  // but showing all is fine for now (moving to self is harmless no-op).
-  const allFolders = useMemo(() => {
-    return items.filter(item => item.type === ItemType.FOLDER);
+    return items.filter(item => item.type === ItemType.IMAGE);
   }, [items]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    const newImages: GalleryItem[] = Array.from(files).map(file => ({
-      id: generateId(),
-      type: ItemType.IMAGE,
-      url: URL.createObjectURL(file), // Create local blob URL for preview
-      title: file.name,
-      createdAt: Date.now(),
-      parentId: currentFolderId || undefined // Add to current folder
-    }));
-
-    setItems(prev => [...prev, ...newImages]);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    setLoading(true);
+    try {
+      // Upload sequentially for simplicity
+      for (let i = 0; i < files.length; i++) {
+        await api.uploadFile(files[i], currentFolderId);
+      }
+      await loadItems();
+    } catch (error) {
+      console.error("Upload failed", error);
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  const handleCreateFolder = (folderName: string) => {
-    const newFolder: GalleryItem = {
-      id: generateId(),
-      type: ItemType.FOLDER,
-      title: folderName,
-      createdAt: Date.now(),
-      parentId: currentFolderId || undefined // Create inside current folder
-    };
-    setItems(prev => [newFolder, ...prev]);
+  const handleCreateFolder = async (folderName: string) => {
+    setLoading(true);
+    try {
+      await api.createFolder(folderName, currentFolderId);
+      await loadItems();
+    } catch (error) {
+      console.error("Create folder failed", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Click on a grid item
@@ -103,7 +138,6 @@ function App() {
     if (item.type === ItemType.FOLDER) {
       setCurrentFolderId(item.id);
     } else {
-      // Find the index of this image within the *current visible images*
       const index = visibleImages.findIndex(img => img.id === item.id);
       if (index !== -1) {
         setViewingImageIndex(index);
@@ -115,7 +149,7 @@ function App() {
     if (currentFolder && currentFolder.parentId) {
       setCurrentFolderId(currentFolder.parentId);
     } else {
-      setCurrentFolderId(null);
+      setCurrentFolderId(undefined);
     }
   };
 
@@ -124,35 +158,50 @@ function App() {
     setIsFolderPickerOpen(true);
   };
 
-  const handleFolderSelect = (folderId: string | undefined) => {
+  const handleFolderSelect = async (targetFolderId: string | undefined) => {
     if (!imageToMoveId) return;
 
-    setItems(prev => prev.map(item => {
-      if (item.id === imageToMoveId) {
-        return { ...item, parentId: folderId };
-      }
-      return item;
-    }));
+    // Optimistic UI update or wait for API? Let's wait for API to be safe.
+    try {
+      await api.moveItem(imageToMoveId, targetFolderId);
+      
+      setIsFolderPickerOpen(false);
+      
+      // Refresh current view
+      await loadItems();
 
-    setIsFolderPickerOpen(false);
-    
-    // Auto-advance logic in viewer:
-    // When moving an item out of the current view, we need to adjust the viewer index.
-    if (viewingImageIndex !== null) {
-      // If we move the last item, go to previous, else stay at same index (which becomes the next image)
-      if (viewingImageIndex >= visibleImages.length - 1) {
-         const newLength = visibleImages.length - 1;
-         if (newLength < 0) setViewingImageIndex(null);
-         else setViewingImageIndex(newLength);
-      } 
+      // Adjust viewer index if needed (since item disappeared from current view)
+      if (viewingImageIndex !== null) {
+        // Simple logic: Close viewer if list empty, or clamp index
+        // Note: visibleImages will be stale until next render, so we can't fully calculate new index here accurately
+        // without complex optimistic state. For now, we'll close the viewer if it gets confusing, 
+        // or just let the re-render handle it (might show next image automatically).
+        // Let's just re-validate the index in the effect or render.
+        // Actually, if we refresh items, the Viewer will re-render with new images list.
+        // We need to ensure we don't go out of bounds.
+        setViewingImageIndex(prev => {
+           if (prev === null) return null;
+           // We'll rely on the fact that loadItems updates `items`, calculating `visibleImages`.
+           // The Viewer component handles standard props updates, but we might shift.
+           // A safe bet is:
+           return prev > 0 ? prev - 1 : 0;
+        });
+      }
+
+    } catch (error) {
+      console.error("Move failed", error);
     }
   };
 
   // Sort: Folders first, then Images
-  const sortedVisibleItems = [...visibleItems].sort((a, b) => {
+  const sortedItems = [...items].sort((a, b) => {
     if (a.type === b.type) return 0;
     return a.type === ItemType.FOLDER ? -1 : 1;
   });
+
+  const currentTitle = currentFolderId 
+    ? (folderTitleMap[currentFolderId] || 'Folder') 
+    : 'Gallery';
 
   return (
     <div className="min-h-screen bg-tg-bg font-sans text-tg-text">
@@ -180,21 +229,23 @@ function App() {
               </button>
             )}
             <h1 className="text-lg font-semibold tracking-tight truncate">
-              {currentFolderId ? currentFolder?.title : 'Gallery'}
+              {currentTitle}
             </h1>
           </div>
           
           <div className="flex items-center gap-1 shrink-0">
             <button 
               onClick={handleUploadClick}
-              className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
+              disabled={loading}
+              className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
               aria-label="Upload Images"
             >
               <PhotoIcon className="w-6 h-6" />
             </button>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
+              disabled={loading}
+              className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
               aria-label="Create Folder"
             >
               <PlusIcon className="w-7 h-7" />
@@ -205,13 +256,17 @@ function App() {
 
       {/* Content */}
       <main className="max-w-7xl mx-auto min-h-[calc(100vh-48px)]">
-        {sortedVisibleItems.length === 0 ? (
+        {loading && items.length === 0 ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+          </div>
+        ) : sortedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-tg-hint">
             <p>Empty folder</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 pb-20">
-             {sortedVisibleItems.map((item) => (
+             {sortedItems.map((item) => (
                 <div 
                   key={item.id} 
                   onClick={() => handleItemClick(item)}
@@ -251,7 +306,8 @@ function App() {
       <div className="fixed bottom-6 right-6 z-30 md:hidden">
         <button
           onClick={handleUploadClick}
-          className="bg-tg-button text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform"
+          disabled={loading}
+          className="bg-tg-button text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-70"
         >
           <PhotoIcon className="w-6 h-6" />
         </button>
@@ -267,7 +323,7 @@ function App() {
       {viewingImageIndex !== null && visibleImages.length > 0 && (
         <ImageViewer
           images={visibleImages}
-          initialIndex={viewingImageIndex}
+          initialIndex={Math.min(viewingImageIndex, visibleImages.length - 1)} // Safety clamp
           onClose={() => setViewingImageIndex(null)}
           onMoveToFolder={handleMoveToFolderRequest}
         />
