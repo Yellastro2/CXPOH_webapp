@@ -18,7 +18,14 @@ export default defineConfig(({ mode }) => {
         allowedHosts: [
             '65459237bf09.ngrok-free.app',
             'yellowdevtest23252345.loca.lt'
-        ]
+        ],
+        proxy: {
+                "/api": {
+                  target: "http://localhost:8000",
+                  changeOrigin: true,
+                  secure: false
+                }
+              }
     }
   }
 })

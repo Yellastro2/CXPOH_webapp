@@ -26,6 +26,8 @@ function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const showUploadButton = process.env.SHOW_UPLOAD_BUTTON === 'true';
+
   // Load items when current folder changes
   useEffect(() => {
     loadItems();
@@ -43,7 +45,7 @@ function App() {
     try {
       const data = await api.getItems(currentFolderId);
       setItems(data);
-      
+
       // Update title map if we found folders
       const newTitles: Record<string, string> = {};
       data.forEach(item => {
@@ -79,7 +81,7 @@ function App() {
   // Since we only load current items, we need to look up the parent of the current folder.
   // In a real app, `getItems` might return metadata about the current folder, or we'd have a `getFolderDetails` endpoint.
   // For this Mock implementation, we'll rely on the `allFolders` cache or we might lose the parent reference if we refresh deep.
-  // To fix this simply: The API logic for `back` is tricky without a `getFolder(id)` method. 
+  // To fix this simply: The API logic for `back` is tricky without a `getFolder(id)` method.
   // Let's iterate allFolders to find the current folder's parent.
   const currentFolder = useMemo(() => {
     return allFolders.find(f => f.id === currentFolderId);
@@ -164,9 +166,9 @@ function App() {
     // Optimistic UI update or wait for API? Let's wait for API to be safe.
     try {
       await api.moveItem(imageToMoveId, targetFolderId);
-      
+
       setIsFolderPickerOpen(false);
-      
+
       // Refresh current view
       await loadItems();
 
@@ -174,7 +176,7 @@ function App() {
       if (viewingImageIndex !== null) {
         // Simple logic: Close viewer if list empty, or clamp index
         // Note: visibleImages will be stale until next render, so we can't fully calculate new index here accurately
-        // without complex optimistic state. For now, we'll close the viewer if it gets confusing, 
+        // without complex optimistic state. For now, we'll close the viewer if it gets confusing,
         // or just let the re-render handle it (might show next image automatically).
         // Let's just re-validate the index in the effect or render.
         // Actually, if we refresh items, the Viewer will re-render with new images list.
@@ -199,20 +201,20 @@ function App() {
     return a.type === ItemType.FOLDER ? -1 : 1;
   });
 
-  const currentTitle = currentFolderId 
-    ? (folderTitleMap[currentFolderId] || 'Folder') 
+  const currentTitle = currentFolderId
+    ? (folderTitleMap[currentFolderId] || 'Folder')
     : 'Gallery';
 
   return (
     <div className="min-h-screen bg-tg-bg font-sans text-tg-text">
       {/* Hidden File Input */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        className="hidden" 
-        accept="image/*" 
-        multiple 
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/*"
+        multiple
       />
 
       {/* Sticky Header */}
@@ -220,7 +222,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2 overflow-hidden">
             {currentFolderId && (
-              <button 
+              <button
                 onClick={handleBack}
                 className="text-tg-link hover:opacity-70 flex items-center -ml-2 pr-2"
               >
@@ -232,17 +234,10 @@ function App() {
               {currentTitle}
             </h1>
           </div>
-          
+
           <div className="flex items-center gap-1 shrink-0">
-            <button 
-              onClick={handleUploadClick}
-              disabled={loading}
-              className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-              aria-label="Upload Images"
-            >
-              <PhotoIcon className="w-6 h-6" />
-            </button>
-            <button 
+            {/* Upload button removed from header */}
+            <button
               onClick={() => setIsModalOpen(true)}
               disabled={loading}
               className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
@@ -267,8 +262,8 @@ function App() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 pb-20">
              {sortedItems.map((item) => (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   onClick={() => handleItemClick(item)}
                   className={`
                     relative group overflow-hidden rounded-xl aspect-square shadow-sm transition-transform active:scale-95 duration-200 cursor-pointer
@@ -287,9 +282,9 @@ function App() {
                     </>
                   ) : (
                     <div className="w-full h-full relative">
-                      <img 
-                        src={item.url} 
-                        alt="Gallery item" 
+                      <img
+                        src={item.url}
+                        alt="Gallery item"
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />
@@ -302,16 +297,18 @@ function App() {
         )}
       </main>
 
-      {/* Floating Action Button (Mobile) */}
-      <div className="fixed bottom-6 right-6 z-30 md:hidden">
-        <button
-          onClick={handleUploadClick}
-          disabled={loading}
-          className="bg-tg-button text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-70"
-        >
-          <PhotoIcon className="w-6 h-6" />
-        </button>
-      </div>
+      {/* Floating Action Button (Mobile) - Conditioned by ENV */}
+      {showUploadButton && (
+        <div className="fixed bottom-6 right-6 z-30 md:hidden">
+          <button
+            onClick={handleUploadClick}
+            disabled={loading}
+            className="bg-tg-button text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-70"
+          >
+            <PhotoIcon className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
       <Modal 
         isOpen={isModalOpen} 
