@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         port: 3000,
         allowedHosts: [
-            '65459237bf09.ngrok-free.app'
+            '65459237bf09.ngrok-free.app',
+            'yellowdevtest23252345.loca.lt'
         ]
     }
   }
