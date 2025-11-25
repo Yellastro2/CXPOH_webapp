@@ -13,7 +13,11 @@ export default defineConfig(({ mode }) => {
       'process.env': env
     },
     server: {
-      port: 3000,
+        host: '0.0.0.0',
+        port: 3000,
+        allowedHosts: [
+            '65459237bf09.ngrok-free.app'
+        ]
     }
   }
 })
