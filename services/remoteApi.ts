@@ -13,6 +13,14 @@ const getUserId = (): string => {
   return process.env.DEFAULT_USER_ID || '12345678';
 };
 
+// Helper to get Telegram Init Data
+const getInitData = (): string => {
+  const data = window.Telegram?.WebApp?.initData;
+  // Check if data exists and is not empty
+  if (data) return data;
+  return "noinitData";
+};
+
 // Types based on new JSON Response
 interface BackendItem {
   id: string;
@@ -20,7 +28,6 @@ interface BackendItem {
   type: 'FILE' | 'FOLDER';
   storageId?: string | null;
   sizeBytes?: number;
-  // created_at/updated_at are missing in the new JSON spec, so we will default them
 }
 
 const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
@@ -29,7 +36,10 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
   // Construct URL for file download via proxy
   let imageUrl = undefined;
   if (!isFolder && item.storageId) {
-    imageUrl = `${API_BASE}/api/telegram/file?fileId=${encodeURIComponent(item.storageId)}`;
+    // Since <img> tags cannot send custom headers, we must pass the initData
+    // in the URL query string so the backend can validate the request.
+    const initData = getInitData();
+    imageUrl = `${API_BASE}/api/telegram/file?fileId=${encodeURIComponent(item.storageId)}&initData=${encodeURIComponent(initData)}`;
   }
 
   return {
@@ -46,6 +56,7 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
 export const remoteApi: GalleryApi = {
   async getItems(parentId?: string): Promise<GalleryItem[]> {
     const userId = getUserId();
+    const initData = getInitData();
     const url = new URL(`${API_BASE}/api/folders/content`, window.location.origin);
 
     url.searchParams.append('userId', userId);
@@ -58,6 +69,7 @@ export const remoteApi: GalleryApi = {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'X-Telegram-Init-Data': initData
         },
       });
 
@@ -88,6 +100,7 @@ export const remoteApi: GalleryApi = {
 
   async createFolder(name: string, parentId?: string): Promise<GalleryItem> {
     const userId = getUserId();
+    const initData = getInitData();
     const url = `${API_BASE}/api/folder`;
 
     const body = {
@@ -100,6 +113,7 @@ export const remoteApi: GalleryApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': initData
       },
       body: JSON.stringify(body)
     });
@@ -122,6 +136,7 @@ export const remoteApi: GalleryApi = {
 
   async moveItem(itemId: string, targetParentId?: string): Promise<void> {
     const userId = getUserId();
+    const initData = getInitData();
     const url = `${API_BASE}/api/folders/move`;
 
     const body = {
@@ -134,6 +149,7 @@ export const remoteApi: GalleryApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': initData
       },
       body: JSON.stringify(body)
     });
