@@ -8,7 +8,8 @@ export interface GalleryItem {
   id: string;
   type: ItemType;
   title?: string; // For folders
-  url?: string;   // For images
+  url?: string;   // For images (Preview variant)
+  fullUrl?: string; // For images (Full variant)
   createdAt: number;
   parentId?: string; // ID of the folder containing this item
 }

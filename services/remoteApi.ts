@@ -33,20 +33,36 @@ interface BackendItem {
 const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
   const isFolder = item.type === 'FOLDER';
 
-  // Construct URL for file download via proxy
-  let imageUrl = undefined;
+  let previewUrl = undefined;
+  let fullUrl = undefined;
+
   if (!isFolder && item.storageId) {
-    // Since <img> tags cannot send custom headers, we must pass the initData
-    // in the URL query string so the backend can validate the request.
     const initData = getInitData();
-    imageUrl = `${API_BASE}/api/telegram/file?fileId=${encodeURIComponent(item.storageId)}&initData=${encodeURIComponent(initData)}`;
+    const baseUrl = `${API_BASE}/api/telegram/image`;
+
+    // Construct params for Preview
+    const previewParams = new URLSearchParams({
+      storageId: item.storageId,
+      variant: 'PREVIEW',
+      initData: initData
+    });
+    previewUrl = `${baseUrl}?${previewParams.toString()}`;
+
+    // Construct params for Full
+    const fullParams = new URLSearchParams({
+      storageId: item.storageId,
+      variant: 'FULL',
+      initData: initData
+    });
+    fullUrl = `${baseUrl}?${fullParams.toString()}`;
   }
 
   return {
     id: item.id,
     type: isFolder ? ItemType.FOLDER : ItemType.IMAGE,
     title: item.name,
-    url: imageUrl,
+    url: previewUrl, // Default URL is used for grid preview
+    fullUrl: fullUrl, // Full URL is used for full screen viewer
     // Since API doesn't return timestamps yet, default to 0 to avoid NaN
     createdAt: 0,
     parentId: undefined

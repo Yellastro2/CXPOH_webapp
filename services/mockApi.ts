@@ -11,12 +11,16 @@ const getRandomImage = (): string => {
 };
 
 // Initial state simulation (In-memory database)
-let mockDb: GalleryItem[] = Array.from({ length: 10 }, () => ({
-  id: generateId(),
-  type: ItemType.IMAGE,
-  url: getRandomImage(),
-  createdAt: Date.now(),
-}));
+let mockDb: GalleryItem[] = Array.from({ length: 10 }, () => {
+  const url = getRandomImage();
+  return {
+    id: generateId(),
+    type: ItemType.IMAGE,
+    url: url,
+    fullUrl: url, // Use same URL for mock full
+    createdAt: Date.now(),
+  };
+});
 
 // Simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -57,10 +61,12 @@ export const mockApi: GalleryApi = {
 
   async uploadFile(file: File, parentId?: string): Promise<GalleryItem> {
     await delay(500); // Simulate upload time
+    const url = URL.createObjectURL(file);
     const newItem: GalleryItem = {
       id: generateId(),
       type: ItemType.IMAGE,
-      url: URL.createObjectURL(file), // In mock we just use local blob
+      url: url,
+      fullUrl: url,
       title: file.name,
       createdAt: Date.now(),
       parentId: parentId
