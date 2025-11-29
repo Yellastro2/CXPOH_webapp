@@ -11,16 +11,22 @@ import { GalleryItem, ItemType } from './types';
 function App() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
-  
-  // Cache folder names for the header title (since we might not have the full folder object loaded in the current view)
+
+  // Navigation Stack: Stores the history of folder IDs.
+  // Empty array = Root. ['id1', 'id2'] = Root -> id1 -> id2.
+  const [folderPath, setFolderPath] = useState<string[]>([]);
+
+  // Derived current folder ID
+  const currentFolderId = folderPath.length > 0 ? folderPath[folderPath.length - 1] : undefined;
+
+  // Cache folder names for the header title
   const [folderTitleMap, setFolderTitleMap] = useState<Record<string, string>>({});
   const [allFolders, setAllFolders] = useState<GalleryItem[]>([]); // For the picker
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
-  
+
   // Track the image pending move
   const [imageToMoveId, setImageToMoveId] = useState<string | null>(null);
 
@@ -66,7 +72,7 @@ function App() {
     try {
       const folders = await api.getAllFolders();
       setAllFolders(folders);
-      // Also update title map from this complete list to ensure we have titles for back navigation
+      // Also update title map from this list
       const newTitles: Record<string, string> = {};
       folders.forEach(f => {
         if (f.title) newTitles[f.id] = f.title;
@@ -77,22 +83,12 @@ function App() {
     }
   };
 
-  // Find current folder parent ID for back navigation
-  // Since we only load current items, we need to look up the parent of the current folder.
-  // In a real app, `getItems` might return metadata about the current folder, or we'd have a `getFolderDetails` endpoint.
-  // For this Mock implementation, we'll rely on the `allFolders` cache or we might lose the parent reference if we refresh deep.
-  // To fix this simply: The API logic for `back` is tricky without a `getFolder(id)` method.
-  // Let's iterate allFolders to find the current folder's parent.
-  const currentFolder = useMemo(() => {
-    return allFolders.find(f => f.id === currentFolderId);
-  }, [allFolders, currentFolderId]);
-
-  // Ensure we have folder data. If allFolders is empty (first load deep), try to fetch them.
+  // Ensure we have root folders data for picker if needed
   useEffect(() => {
-    if (currentFolderId && allFolders.length === 0) {
+    if (allFolders.length === 0) {
       loadAllFolders();
     }
-  }, [currentFolderId, allFolders.length]);
+  }, []);
 
   const visibleImages = useMemo(() => {
     return items.filter(item => item.type === ItemType.IMAGE);
@@ -138,7 +134,8 @@ function App() {
   // Click on a grid item
   const handleItemClick = (item: GalleryItem) => {
     if (item.type === ItemType.FOLDER) {
-      setCurrentFolderId(item.id);
+      // Push new folder ID to history stack
+      setFolderPath(prev => [...prev, item.id]);
     } else {
       const index = visibleImages.findIndex(img => img.id === item.id);
       if (index !== -1) {
@@ -148,11 +145,8 @@ function App() {
   };
 
   const handleBack = () => {
-    if (currentFolder && currentFolder.parentId) {
-      setCurrentFolderId(currentFolder.parentId);
-    } else {
-      setCurrentFolderId(undefined);
-    }
+    // Pop the last folder ID from history stack
+    setFolderPath(prev => prev.slice(0, -1));
   };
 
   const handleMoveToFolderRequest = (imageId: string) => {
@@ -163,33 +157,18 @@ function App() {
   const handleFolderSelect = async (targetFolderId: string | undefined) => {
     if (!imageToMoveId) return;
 
-    // Optimistic UI update or wait for API? Let's wait for API to be safe.
     try {
       await api.moveItem(imageToMoveId, targetFolderId);
-
       setIsFolderPickerOpen(false);
-
-      // Refresh current view
       await loadItems();
 
-      // Adjust viewer index if needed (since item disappeared from current view)
+      // Adjust viewer index if needed
       if (viewingImageIndex !== null) {
-        // Simple logic: Close viewer if list empty, or clamp index
-        // Note: visibleImages will be stale until next render, so we can't fully calculate new index here accurately
-        // without complex optimistic state. For now, we'll close the viewer if it gets confusing,
-        // or just let the re-render handle it (might show next image automatically).
-        // Let's just re-validate the index in the effect or render.
-        // Actually, if we refresh items, the Viewer will re-render with new images list.
-        // We need to ensure we don't go out of bounds.
         setViewingImageIndex(prev => {
            if (prev === null) return null;
-           // We'll rely on the fact that loadItems updates `items`, calculating `visibleImages`.
-           // The Viewer component handles standard props updates, but we might shift.
-           // A safe bet is:
            return prev > 0 ? prev - 1 : 0;
         });
       }
-
     } catch (error) {
       console.error("Move failed", error);
     }
@@ -218,7 +197,7 @@ function App() {
       />
 
       {/* Sticky Header */}
-      <header className="sticky top-0 z-40 bg-tg-header/80 backdrop-blur-md border-b border-tg-separator/30">
+      <header className="sticky top-0 z-40 bg-tg-header/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2 overflow-hidden">
             {currentFolderId && (
@@ -236,7 +215,14 @@ function App() {
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* Upload button removed from header */}
+              <button
+                        onClick={handleUploadClick}
+                        disabled={loading}
+                        className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                        aria-label="Upload Images"
+                      >
+                        <PhotoIcon className="w-6 h-6" />
+                      </button>
             <button
               onClick={() => setIsModalOpen(true)}
               disabled={loading}

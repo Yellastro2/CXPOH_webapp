@@ -27,6 +27,7 @@ export interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   close: () => void;
+  requestFullscreen: () => void;
   initData: string;
   initDataUnsafe: any;
   colorScheme: 'light' | 'dark';

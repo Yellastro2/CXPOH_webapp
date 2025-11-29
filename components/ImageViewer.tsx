@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GalleryItem } from '../types';
-import { CloseIcon, MoveToFolderIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from './Icons';
+import { CloseIcon, MoveToFolderIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ExtraIcon, ShareIcon } from './Icons';
 
 interface ImageViewerProps {
   images: GalleryItem[];
@@ -258,7 +258,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col justify-center items-center animate-fadeIn overflow-hidden">
       {/* Header Controls */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
+      <div className="absolute top-0 left-0 right-0 p-4 flex justify-end items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
         <button
           onClick={onClose}
           className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -266,28 +266,42 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           <CloseIcon className="w-8 h-8" />
         </button>
 
-        <div className="flex items-center gap-2">
-            <button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
-            >
-                {isDownloading ? (
-                   <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                   <DownloadIcon className="w-6 h-6" />
-                )}
-            </button>
-
-            <button
-                onClick={() => onMoveToFolder(currentImage.id)}
-                className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex items-center gap-2"
-            >
-                <span className="text-sm font-medium hidden md:block">Move to Folder</span>
-                <MoveToFolderIcon className="w-7 h-7" />
-            </button>
-        </div>
       </div>
+
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
+
+        <button
+          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+        >
+          <ShareIcon className="w-8 h-8" />
+        </button>
+
+        <button
+          onClick={handleDownload}
+          disabled={isDownloading}
+          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+        >
+          {isDownloading ? (
+            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <DownloadIcon className="w-8 h-8" />
+          )}
+        </button>
+
+        <button
+          onClick={() => onMoveToFolder(currentImage.id)}
+          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+        >
+          <MoveToFolderIcon className="w-8 h-8" />
+        </button>
+
+        <button
+          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+        >
+          <ExtraIcon className="w-8 h-8" />
+        </button>
+      </div>
+
 
       {/* Main Slider Area */}
       <div

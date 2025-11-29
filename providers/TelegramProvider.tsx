@@ -26,16 +26,26 @@ export const TelegramProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // In Telegram, it contains the initialization data string.
     if (app && app.initData) {
       console.log('Telegram Web App detected (valid session).');
+      console.log('Original initData:', app.initData);
       setWebApp(app);
       setInTelegram(true);
-      
+
       // Initialize the Mini App
       app.ready();
       app.expand(); // Request to expand to full height
+
+      // Attempt to enter fullscreen mode (if supported by client)
+//       if (typeof app.requestFullscreen === 'function') {
+//         try {
+//           app.requestFullscreen();
+//         } catch (e) {
+//           console.error("Failed to request fullscreen:", e);
+//         }
+//       }
     } else {
       console.log('Telegram initData not found. Assuming fallback/browser mode.');
       // We still provide the app object if needed for debugging UI, but flag is false
-      setWebApp(app); 
+      setWebApp(app);
       setInTelegram(false);
     }
   }, []);
