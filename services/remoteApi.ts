@@ -1,5 +1,5 @@
 
-import { GalleryApi, GalleryItem, ItemType } from '../types';
+import { GalleryApi, GalleryItem, ItemType, Tag } from '../types';
 
 const API_BASE = process.env.API_URL || ''; // Empty string means relative path if hosted on same domain
 
@@ -28,6 +28,8 @@ interface BackendItem {
   type: 'FILE' | 'FOLDER';
   storageId?: string | null;
   sizeBytes?: number;
+  tags?: string[];
+  comment?: string;
 }
 
 const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
@@ -65,7 +67,9 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
     fullUrl: fullUrl, // Full URL is used for full screen viewer
     // Since API doesn't return timestamps yet, default to 0 to avoid NaN
     createdAt: 0,
-    parentId: undefined
+    parentId: undefined,
+    tags: item.tags,
+    comment: item.comment
   };
 };
 
@@ -187,5 +191,29 @@ export const remoteApi: GalleryApi = {
       createdAt: Date.now(),
       parentId: parentId
     };
+  },
+
+  async getAllTags(): Promise<Tag[]> {
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = new URL(`${API_BASE}/api/tags/all`, window.location.origin);
+    url.searchParams.append('userId', userId);
+
+    try {
+      const response = await fetch(url.toString(), {
+         method: 'GET',
+         headers: {
+            'Accept': 'application/json',
+            'X-Telegram-Init-Data': initData
+         }
+      });
+      if (!response.ok) {
+         throw new Error('Failed to fetch tags');
+      }
+      return await response.json();
+    } catch (e) {
+      console.error('[RemoteAPI] getAllTags failed', e);
+      return [];
+    }
   }
 };

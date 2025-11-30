@@ -4,6 +4,11 @@ export enum ItemType {
   IMAGE = 'IMAGE'
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+}
+
 export interface GalleryItem {
   id: string;
   type: ItemType;
@@ -12,6 +17,10 @@ export interface GalleryItem {
   fullUrl?: string; // For images (Full variant)
   createdAt: number;
   parentId?: string; // ID of the folder containing this item
+
+  // Metadata
+  tags?: string[]; // Array of tag IDs
+  comment?: string;
 }
 
 export interface GalleryApi {
@@ -20,6 +29,7 @@ export interface GalleryApi {
   createFolder(name: string, parentId?: string): Promise<GalleryItem>;
   moveItem(itemId: string, targetParentId?: string): Promise<void>;
   uploadFile(file: File, parentId?: string): Promise<GalleryItem>;
+  getAllTags(): Promise<Tag[]>;
 }
 
 // Minimal Telegram Web App Types

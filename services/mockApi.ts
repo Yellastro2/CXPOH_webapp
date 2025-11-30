@@ -1,5 +1,5 @@
 
-import { GalleryApi, GalleryItem, ItemType } from '../types';
+import { GalleryApi, GalleryItem, ItemType, Tag } from '../types';
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -10,15 +10,24 @@ const getRandomImage = (): string => {
   return `https://picsum.photos/seed/${seed}/500/500`;
 };
 
+// Mock Tags
+const mockTags: Tag[] = [
+  { id: 'tag1', name: 'Nature' },
+  { id: 'tag2', name: 'Work' },
+  { id: 'tag3', name: 'Memes' }
+];
+
 // Initial state simulation (In-memory database)
-let mockDb: GalleryItem[] = Array.from({ length: 10 }, () => {
+let mockDb: GalleryItem[] = Array.from({ length: 10 }, (_, i) => {
   const url = getRandomImage();
   return {
     id: generateId(),
     type: ItemType.IMAGE,
     url: url,
-    fullUrl: url, // Use same URL for mock full
+    fullUrl: url,
     createdAt: Date.now(),
+    tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
+    comment: i % 3 === 0 ? "This is a sample comment for the photo." : undefined
   };
 });
 
@@ -73,5 +82,10 @@ export const mockApi: GalleryApi = {
     };
     mockDb.push(newItem);
     return newItem;
+  },
+
+  async getAllTags(): Promise<Tag[]> {
+    await delay(100);
+    return mockTags;
   }
 };

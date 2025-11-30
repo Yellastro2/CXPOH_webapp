@@ -23,6 +23,9 @@ function App() {
   const [folderTitleMap, setFolderTitleMap] = useState<Record<string, string>>({});
   const [allFolders, setAllFolders] = useState<GalleryItem[]>([]); // For the picker
 
+  // Tags Mapping
+  const [tagsMap, setTagsMap] = useState<Record<string, string>>({});
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -39,7 +42,13 @@ function App() {
     loadItems();
   }, [currentFolderId]);
 
-  // Load all folders whenever the folder picker is opened
+  // Load global data (Folders for picker, Tags) on mount
+  useEffect(() => {
+    loadAllFolders();
+    loadTags();
+  }, []);
+
+  // Reload folders when picker opens to be fresh
   useEffect(() => {
     if (isFolderPickerOpen) {
       loadAllFolders();
@@ -83,12 +92,16 @@ function App() {
     }
   };
 
-  // Ensure we have root folders data for picker if needed
-  useEffect(() => {
-    if (allFolders.length === 0) {
-      loadAllFolders();
+  const loadTags = async () => {
+    try {
+      const tags = await api.getAllTags();
+      const mapping: Record<string, string> = {};
+      tags.forEach(t => mapping[t.id] = t.name);
+      setTagsMap(mapping);
+    } catch (e) {
+      console.error("Failed to load tags", e);
     }
-  }, []);
+  };
 
   const visibleImages = useMemo(() => {
     return items.filter(item => item.type === ItemType.IMAGE);
@@ -296,10 +309,10 @@ function App() {
         </div>
       )}
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSubmit={handleCreateFolder} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateFolder}
       />
 
       {/* Image Viewer */}
@@ -309,6 +322,7 @@ function App() {
           initialIndex={Math.min(viewingImageIndex, visibleImages.length - 1)} // Safety clamp
           onClose={() => setViewingImageIndex(null)}
           onMoveToFolder={handleMoveToFolderRequest}
+          tagsMap={tagsMap}
         />
       )}
 

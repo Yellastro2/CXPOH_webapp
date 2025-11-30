@@ -8,13 +8,15 @@ interface ImageViewerProps {
   initialIndex: number;
   onClose: () => void;
   onMoveToFolder: (imageId: string) => void;
+  tagsMap?: Record<string, string>;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
   images,
   initialIndex,
   onClose,
-  onMoveToFolder
+  onMoveToFolder,
+  tagsMap = {}
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -27,6 +29,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isZooming, setIsZooming] = useState(false); // Is pinch gesture active
+
+  // Extra Mode State
+  const [isExtraMode, setIsExtraMode] = useState(false);
 
   // Touch Logic References
   const touchStartX = useRef<number | null>(null);
@@ -48,16 +53,17 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     }
   }, [initialIndex, images.length]);
 
-  // Reset Zoom on slide change
+  // Reset Zoom/Pan/Extra on slide change
   useEffect(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setIsExtraMode(false);
   }, [currentIndex]);
 
   // Handle Keyboard Navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isAnimating) return;
+      if (isAnimating || isExtraMode) return;
       if (e.key === 'Escape') onClose();
       // Only navigate if not zoomed
       if (zoom <= 1) {
@@ -67,7 +73,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, images.length, isAnimating, zoom]);
+  }, [currentIndex, images.length, isAnimating, zoom, isExtraMode]);
 
   const slideTo = useCallback((direction: 'prev' | 'next') => {
     if (isAnimating) return;
@@ -108,7 +114,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // --- Touch Handlers ---
 
   const onTouchStart = (e: React.TouchEvent) => {
-    if (isAnimating) return;
+    if (isAnimating || isExtraMode) return;
 
     // 1. Handle Double Tap
     const now = Date.now();
@@ -144,7 +150,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (isAnimating) return;
+    if (isAnimating || isExtraMode) return;
 
     // Pinch Zoom Logic
     if (e.touches.length === 2 && initialZoomDist.current) {
@@ -164,16 +170,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
         if (zoom > 1) {
             // PAN logic (if zoomed)
-            // No strict bounds check for simplicity, allowing free movement
             setPan({
                 x: startPan.current.x + deltaX,
                 y: startPan.current.y + deltaY
             });
         } else {
             // SWIPE logic (if not zoomed)
-            // Resistance at edges
             if ((currentIndex === 0 && deltaX > 0) || (currentIndex === images.length - 1 && deltaX < 0)) {
-                setDiff(deltaX * 0.3);
+                setDiff(deltaX * 0.3); // Resistance
             } else {
                 setDiff(deltaX);
             }
@@ -182,7 +186,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const onTouchEnd = () => {
-    if (isAnimating) return;
+    if (isAnimating || isExtraMode) return;
 
     setIsZooming(false);
     touchStartX.current = null;
@@ -255,52 +259,59 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const prevSrc = prevImage ? (prevImage.fullUrl || prevImage.url) : undefined;
   const nextSrc = nextImage ? (nextImage.fullUrl || nextImage.url) : undefined;
 
+  // Format Tags string
+  const tagsString = currentImage.tags?.map(id => `#${tagsMap[id] || id}`).join(' ');
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col justify-center items-center animate-fadeIn overflow-hidden">
       {/* Header Controls */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex justify-end items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
-        <button
-          onClick={onClose}
-          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
-        >
-          <CloseIcon className="w-8 h-8" />
-        </button>
+      {!isExtraMode && (
+          <div className="absolute top-0 left-0 right-0 p-4 flex justify-end items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
+            <button
+              onClick={onClose}
+              className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <CloseIcon className="w-8 h-8" />
+            </button>
+          </div>
+      )}
 
-      </div>
+      {/* Side Actions */}
+      {!isExtraMode && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
+            <button
+            className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+            >
+            <ShareIcon className="w-8 h-8" />
+            </button>
 
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
+            <button
+            onClick={handleDownload}
+            disabled={isDownloading}
+            className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+            >
+            {isDownloading ? (
+                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+                <DownloadIcon className="w-8 h-8" />
+            )}
+            </button>
 
-        <button
-          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
-        >
-          <ShareIcon className="w-8 h-8" />
-        </button>
+            <button
+            onClick={() => onMoveToFolder(currentImage.id)}
+            className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+            >
+            <MoveToFolderIcon className="w-8 h-8" />
+            </button>
 
-        <button
-          onClick={handleDownload}
-          disabled={isDownloading}
-          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
-        >
-          {isDownloading ? (
-            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <DownloadIcon className="w-8 h-8" />
-          )}
-        </button>
-
-        <button
-          onClick={() => onMoveToFolder(currentImage.id)}
-          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
-        >
-          <MoveToFolderIcon className="w-8 h-8" />
-        </button>
-
-        <button
-          className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
-        >
-          <ExtraIcon className="w-8 h-8" />
-        </button>
-      </div>
+            <button
+            onClick={() => setIsExtraMode(true)}
+            className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+            >
+            <ExtraIcon className="w-8 h-8" />
+            </button>
+        </div>
+      )}
 
 
       {/* Main Slider Area */}
@@ -309,6 +320,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        onClick={() => {
+            // Click to exit extra mode
+            if (isExtraMode) setIsExtraMode(false);
+        }}
       >
         {/* Sliding Track */}
         <div
@@ -316,10 +331,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             style={{
                 width: '300%',
                 marginLeft: '-100%',
-                // Only move track if NOT zoomed. If zoomed, track stays centered (diff=0).
+                // Only move track if NOT zoomed and NOT extra mode.
                 transform: `translate3d(${diff}px, 0, 0)`,
                 // Disable transition if dragging, resetting, or zooming
-                transition: (touchStartX.current || isResetting || isZooming || zoom > 1) ? 'none' : 'transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1)'
+                transition: (touchStartX.current || isResetting || isZooming || zoom > 1 || isExtraMode) ? 'none' : 'transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1)'
             }}
         >
             {/* Previous Image Slot */}
@@ -343,7 +358,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     draggable={false}
                     style={{
                         transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
-                        // Use transition only if not actively pinching/panning to smooth double tap
+                        // Use transition only if not actively pinching/panning
                         transition: (touchStartX.current || isZooming) ? 'none' : 'transform 300ms ease-out'
                     }}
                 />
@@ -362,8 +377,30 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             </div>
         </div>
 
-        {/* Desktop Arrows (Only visible if not zoomed) */}
-        {zoom === 1 && currentIndex > 0 && (
+        {/* Extra Mode Overlay */}
+        {isExtraMode && (
+             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none flex flex-col justify-end p-10 gap-4">
+                 {/* Tags */}
+                 {tagsString && (
+                     <div className="text-white font-medium text-xl drop-shadow-md">
+                         {tagsString}
+                     </div>
+                 )}
+                 {/* Comment */}
+                 {currentImage.comment && (
+                     <div className="text-white text-xs leading-snug drop-shadow-md">
+                         {currentImage.comment}
+                     </div>
+                 )}
+                 {/* Fallback if nothing */}
+                 {!tagsString && !currentImage.comment && (
+                     <div className="text-gray-400 italic">No extra info</div>
+                 )}
+             </div>
+        )}
+
+        {/* Desktop Arrows (Only visible if not zoomed & not extra mode) */}
+        {!isExtraMode && zoom === 1 && currentIndex > 0 && (
           <button
             onClick={(e) => { e.stopPropagation(); slideTo('prev'); }}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-30 text-white/70 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-2 hidden md:block transition-all"
@@ -372,8 +409,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           </button>
         )}
 
-        {zoom === 1 && currentIndex < images.length - 1 && (
-          <button 
+        {!isExtraMode && zoom === 1 && currentIndex < images.length - 1 && (
+          <button
             onClick={(e) => { e.stopPropagation(); slideTo('next'); }}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-30 text-white/70 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-2 hidden md:block transition-all"
           >
@@ -383,9 +420,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       </div>
 
       {/* Footer / Counter */}
-      <div className="absolute bottom-6 z-20 text-white/90 text-sm font-medium px-4 py-1 bg-black/40 rounded-full backdrop-blur-md">
-        {currentIndex + 1} / {images.length}
-      </div>
+      {!isExtraMode && (
+        <div className="absolute bottom-6 z-20 text-white/90 text-sm font-medium px-4 py-1 bg-black/40 rounded-full backdrop-blur-md">
+            {currentIndex + 1} / {images.length}
+        </div>
+      )}
     </div>
   );
 };
