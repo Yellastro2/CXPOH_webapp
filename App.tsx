@@ -187,6 +187,14 @@ function App() {
     }
   };
 
+  const handleItemUpdate = (updatedItem: GalleryItem) => {
+    setItems(prevItems => prevItems.map(item =>
+        item.id === updatedItem.id ? updatedItem : item
+    ));
+    // Also refresh tags in case new ones were created
+    loadTags();
+  };
+
   // Sort: Folders first, then Images
   const sortedItems = [...items].sort((a, b) => {
     if (a.type === b.type) return 0;
@@ -323,6 +331,7 @@ function App() {
           onClose={() => setViewingImageIndex(null)}
           onMoveToFolder={handleMoveToFolderRequest}
           tagsMap={tagsMap}
+          onItemUpdate={handleItemUpdate}
         />
       )}
 

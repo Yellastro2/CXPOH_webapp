@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GalleryItem } from '../types';
-import { CloseIcon, MoveToFolderIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ExtraIcon, ShareIcon } from './Icons';
+import { CloseIcon, MoveToFolderIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ExtraIcon, ShareIcon, CheckIcon } from './Icons';
+import { api } from '../services/api';
 
 interface ImageViewerProps {
   images: GalleryItem[];
@@ -9,6 +10,7 @@ interface ImageViewerProps {
   onClose: () => void;
   onMoveToFolder: (imageId: string) => void;
   tagsMap?: Record<string, string>;
+  onItemUpdate?: (item: GalleryItem) => void;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
@@ -16,7 +18,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   initialIndex,
   onClose,
   onMoveToFolder,
-  tagsMap = {}
+  tagsMap = {},
+  onItemUpdate
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -32,6 +35,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   // Extra Mode State
   const [isExtraMode, setIsExtraMode] = useState(false);
+
+  // Edit Mode State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editComment, setEditComment] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Touch Logic References
   const touchStartX = useRef<number | null>(null);
@@ -58,7 +67,18 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setIsExtraMode(false);
+    setIsEditing(false); // Reset edit mode
   }, [currentIndex]);
+
+  // Sync edit state with current image when opening edit mode or changing image
+  const currentImage = images[currentIndex];
+  useEffect(() => {
+    if (currentImage) {
+        setEditComment(currentImage.comment || "");
+        const names = currentImage.tags?.map(id => tagsMap[id] || id).join(' ') || "";
+        setEditTags(names);
+    }
+  }, [currentImage, tagsMap]);
 
   // Handle Keyboard Navigation
   useEffect(() => {
@@ -114,6 +134,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // --- Touch Handlers ---
 
   const onTouchStart = (e: React.TouchEvent) => {
+    // Disable gestures if in edit mode to allow text selection/scrolling
     if (isAnimating || isExtraMode) return;
 
     // 1. Handle Double Tap
@@ -247,8 +268,29 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     }
   };
 
+  const handleSave = async () => {
+    if (!currentImage) return;
+    setIsSaving(true);
+    try {
+        const tagNames = editTags.split(' ').filter(t => t.trim().length > 0);
+        const updatedItem = await api.updateItem(currentImage.id, {
+            comment: editComment.trim(),
+            tags: tagNames
+        });
+
+        if (onItemUpdate) {
+            onItemUpdate(updatedItem);
+        }
+        setIsEditing(false);
+    } catch (error) {
+        console.error("Failed to save changes", error);
+        alert("Failed to save changes");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   // Render Helpers
-  const currentImage = images[currentIndex];
   const prevImage = images[currentIndex - 1];
   const nextImage = images[currentIndex + 1];
 
@@ -259,24 +301,35 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const prevSrc = prevImage ? (prevImage.fullUrl || prevImage.url) : undefined;
   const nextSrc = nextImage ? (nextImage.fullUrl || nextImage.url) : undefined;
 
-  // Format Tags string
+  // Format Tags string for Display Mode
   const tagsString = currentImage.tags?.map(id => `#${tagsMap[id] || id}`).join(' ');
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col justify-center items-center animate-fadeIn overflow-hidden">
       {/* Header Controls */}
-      {!isExtraMode && (
-          <div className="absolute top-0 left-0 right-0 p-4 flex justify-end items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
-            <button
-              onClick={onClose}
-              className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
-            >
-              <CloseIcon className="w-8 h-8" />
-            </button>
+      {(!isExtraMode || isEditing) && (
+          <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/60 to-transparent">
+             <div /> {/* Spacer */}
+             {isEditing ? (
+                 <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex items-center gap-2"
+                 >
+                    {isSaving ? "Saving..." : <CheckIcon className="w-8 h-8 text-green-400" />}
+                 </button>
+             ) : (
+                <button
+                onClick={onClose}
+                className="text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                <CloseIcon className="w-8 h-8" />
+                </button>
+             )}
           </div>
       )}
 
-      {/* Side Actions */}
+      {/* Side Actions (Hide in Extra Mode) */}
       {!isExtraMode && (
         <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-4 items-center z-30">
             <button
@@ -321,8 +374,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onClick={() => {
-            // Click to exit extra mode
-            if (isExtraMode) setIsExtraMode(false);
+            // Click to exit extra mode ONLY if not editing
+            if (isExtraMode && !isEditing) setIsExtraMode(false);
         }}
       >
         {/* Sliding Track */}
@@ -379,22 +432,43 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
         {/* Extra Mode Overlay */}
         {isExtraMode && (
-             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none flex flex-col justify-end p-10 gap-4">
+             <div className="absolute inset-x-0 bottom-0 top-1/2 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end p-10 gap-4"
+                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside overlay inputs
+             >
                  {/* Tags */}
-                 {tagsString && (
-                     <div className="text-white font-medium text-xl drop-shadow-md">
-                         {tagsString}
+                 {isEditing ? (
+                     <input
+                        type="text"
+                        value={editTags}
+                        onChange={(e) => setEditTags(e.target.value)}
+                        placeholder="Add tags (space separated)"
+                        className="bg-transparent text-white font-medium text-xl border-none outline-none placeholder-gray-500 w-full"
+                        autoFocus
+                     />
+                 ) : (
+                     <div
+                        onClick={() => setIsEditing(true)}
+                        className={`font-medium text-xl drop-shadow-md cursor-text ${tagsString ? 'text-white' : 'text-gray-500'}`}
+                     >
+                         {tagsString || "Add tags"}
                      </div>
                  )}
+
                  {/* Comment */}
-                 {currentImage.comment && (
-                     <div className="text-white text-xs leading-snug drop-shadow-md">
-                         {currentImage.comment}
+                 {isEditing ? (
+                     <textarea
+                        value={editComment}
+                        onChange={(e) => setEditComment(e.target.value)}
+                        placeholder="Enter comment"
+                        className="bg-transparent text-white text-xs leading-snug border-none outline-none placeholder-gray-500 w-full resize-none h-16"
+                     />
+                 ) : (
+                     <div
+                        onClick={() => setIsEditing(true)}
+                        className={`text-xs leading-snug drop-shadow-md cursor-text ${currentImage.comment ? 'text-white' : 'text-gray-500'}`}
+                     >
+                         {currentImage.comment || "Enter comment"}
                      </div>
-                 )}
-                 {/* Fallback if nothing */}
-                 {!tagsString && !currentImage.comment && (
-                     <div className="text-gray-400 italic">No extra info</div>
                  )}
              </div>
         )}

@@ -20,13 +20,11 @@ export const CloseIcon: React.FC<{ className?: string }> = ({ className = "w-6 h
 );
 
 export const PhotoIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
-  <svg width="36" height="37" viewBox="0 0 36 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="36" height="37" viewBox="0 0 36 37" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
   <path d="M28.5 6.0329H7.5C5.835 6.0329 4.5 7.3903 4.5 9.04935V27.148C4.5 28.8071 5.835 30.1645 7.5 30.1645H13.5V27.148H7.5V12.0658H28.5V27.148H22.5V30.1645H28.5C30.15 30.1645 31.5 28.8071 31.5 27.148V9.04935C31.5 7.3903 30.165 6.0329 28.5 6.0329ZM18 15.0822L12 21.1151H16.5V30.1645H19.5V21.1151H24L18 15.0822Z"
   fill="currentColor"/>
   </svg>
 );
-
-
 
 export const MoveToFolderIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
   <svg width="36" height="38" viewBox="0 0 36 38" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}    >
@@ -61,5 +59,11 @@ export const ChevronRightIcon: React.FC<{ className?: string }> = ({ className =
 export const DownloadIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
   <svg width="36" height="37" viewBox="0 0 36 37" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}    >
   <path d="M18 33.181C26.28 33.181 33 26.4241 33 18.0987C33 9.77332 26.28 3.01648 18 3.01648C9.72 3.01648 3 9.77332 3 18.0987C3 26.4241 9.72 33.181 18 33.181ZM16.5 18.0987L16.5 12.0658L19.5 12.0658L19.5 18.0987L24 18.0987L18 24.1316L12 18.0987L16.5 18.0987Z" fill="white"/>
+  </svg>
+);
+
+export const CheckIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
   </svg>
 );

@@ -215,5 +215,34 @@ export const remoteApi: GalleryApi = {
       console.error('[RemoteAPI] getAllTags failed', e);
       return [];
     }
+  },
+
+  async updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem> {
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = `${API_BASE}/api/file/update`;
+
+    const body = {
+        userId,
+        nodeId: itemId,
+        comment: updates.comment,
+        tags: updates.tags // Sending array of Tag Names strings
+    };
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Init-Data': initData
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to update item: ${response.statusText}`);
+    }
+
+    const itemData: BackendItem = await response.json();
+    return mapBackendToFrontend(itemData);
   }
 };

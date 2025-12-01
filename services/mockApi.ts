@@ -11,7 +11,7 @@ const getRandomImage = (): string => {
 };
 
 // Mock Tags
-const mockTags: Tag[] = [
+let mockTags: Tag[] = [
   { id: 'tag1', name: 'Nature' },
   { id: 'tag2', name: 'Work' },
   { id: 'tag3', name: 'Memes' }
@@ -87,5 +87,35 @@ export const mockApi: GalleryApi = {
   async getAllTags(): Promise<Tag[]> {
     await delay(100);
     return mockTags;
+  },
+
+  async updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem> {
+    await delay(300);
+
+    // Process tags (convert names to IDs, creating new tags if necessary)
+    let newTagIds: string[] | undefined = undefined;
+    if (updates.tags) {
+        newTagIds = [];
+        for (const tagName of updates.tags) {
+            let tag = mockTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+            if (!tag) {
+                tag = { id: generateId(), name: tagName };
+                mockTags.push(tag);
+            }
+            newTagIds.push(tag.id);
+        }
+    }
+
+    const itemIndex = mockDb.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) throw new Error("Item not found");
+
+    const updatedItem = {
+        ...mockDb[itemIndex],
+        comment: updates.comment !== undefined ? updates.comment : mockDb[itemIndex].comment,
+        tags: newTagIds !== undefined ? newTagIds : mockDb[itemIndex].tags
+    };
+
+    mockDb[itemIndex] = updatedItem;
+    return updatedItem;
   }
 };
