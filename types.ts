@@ -31,6 +31,7 @@ export interface GalleryApi {
   uploadFile(file: File, parentId?: string): Promise<GalleryItem>;
   getAllTags(): Promise<Tag[]>;
   updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem>;
+  searchFiles(query: string): Promise<GalleryItem[]>;
 }
 
 // Minimal Telegram Web App Types

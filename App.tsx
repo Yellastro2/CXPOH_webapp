@@ -4,9 +4,9 @@ import { GalleryGrid } from './components/GalleryGrid';
 import { Modal } from './components/Modal';
 import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
-import { PlusIcon, PhotoIcon, FolderIcon, ChevronLeftIcon } from './components/Icons';
+import { PlusIcon, PhotoIcon, FolderIcon, ChevronLeftIcon, SearchIcon } from './components/Icons';
 import { api } from './services/api'; // Use the API factory
-import { GalleryItem, ItemType } from './types';
+import { GalleryItem, ItemType, Tag } from './types';
 
 function App() {
   const [items, setItems] = useState<GalleryItem[]>([]);
@@ -30,6 +30,11 @@ function App() {
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
 
+  // Search State
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   // Track the image pending move
   const [imageToMoveId, setImageToMoveId] = useState<string | null>(null);
 
@@ -39,8 +44,12 @@ function App() {
 
   // Load items when current folder changes
   useEffect(() => {
-    loadItems();
-  }, [currentFolderId]);
+    // If in search mode (showing results), we don't auto-reload folder content on nav change
+    // unless we explicitly exited search.
+    if (!isSearchMode) {
+      loadItems();
+    }
+  }, [currentFolderId, isSearchMode]);
 
   // Load global data (Folders for picker, Tags) on mount
   useEffect(() => {
@@ -54,6 +63,15 @@ function App() {
       loadAllFolders();
     }
   }, [isFolderPickerOpen]);
+
+  // Focus search input when mode activates
+  useEffect(() => {
+    if (isSearchMode) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isSearchMode]);
 
   const loadItems = async () => {
     setLoading(true);
@@ -107,6 +125,16 @@ function App() {
     return items.filter(item => item.type === ItemType.IMAGE);
   }, [items]);
 
+  // Filtered tags for search autocomplete
+  const filteredTags = useMemo(() => {
+    if (!searchQuery) return [];
+    // Strip leading hash to allow searching like "#nature" or just "nature"
+    // Also allows showing all tags if user just types "#"
+    const query = searchQuery.toLowerCase().replace(/^#/, '');
+    const tagList = Object.entries(tagsMap).map(([id, name]) => ({ id, name }));
+    return tagList.filter(t => t.name.toLowerCase().includes(query));
+  }, [searchQuery, tagsMap]);
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -147,7 +175,12 @@ function App() {
   // Click on a grid item
   const handleItemClick = (item: GalleryItem) => {
     if (item.type === ItemType.FOLDER) {
-      // Push new folder ID to history stack
+      // If we are in search results, clicking a folder probably should navigate to it.
+      // We push to stack and disable search mode implicitly because of dependency logic in useEffect.
+      if (isSearchMode) {
+        setIsSearchMode(false);
+        setSearchQuery("");
+      }
       setFolderPath(prev => [...prev, item.id]);
     } else {
       const index = visibleImages.findIndex(img => img.id === item.id);
@@ -195,6 +228,31 @@ function App() {
     loadTags();
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    try {
+      const results = await api.searchFiles(searchQuery);
+      setItems(results);
+    } catch (error) {
+      console.error("Search failed", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExitSearch = () => {
+    setIsSearchMode(false);
+    setSearchQuery("");
+    // Reload items for the current folder to restore view
+    loadItems();
+  };
+
+  const handleTagClick = (tagName: string) => {
+    setSearchQuery(`#${tagName}`);
+    searchInputRef.current?.focus();
+  };
+
   // Sort: Folders first, then Images
   const sortedItems = [...items].sort((a, b) => {
     if (a.type === b.type) return 0;
@@ -219,40 +277,95 @@ function App() {
 
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-tg-header/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
-            {currentFolderId && (
-              <button
-                onClick={handleBack}
-                className="text-tg-link hover:opacity-70 flex items-center -ml-2 pr-2"
-              >
-                <ChevronLeftIcon className="w-6 h-6" />
-                <span className="text-base">Back</span>
-              </button>
-            )}
-            <h1 className="text-lg font-semibold tracking-tight truncate">
-              {currentTitle}
-            </h1>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between relative">
 
-          <div className="flex items-center gap-1 shrink-0">
-              <button
-                        onClick={handleUploadClick}
-                        disabled={loading}
-                        className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-                        aria-label="Upload Images"
+          {isSearchMode ? (
+            /* Search Mode Header */
+            <div className="flex w-full items-center gap-2 animate-fadeIn">
+               <button
+                 onClick={handleExitSearch}
+                 className="text-tg-link hover:opacity-70 p-1"
+               >
+                 <ChevronLeftIcon className="w-6 h-6" />
+               </button>
+               <input
+                 ref={searchInputRef}
+                 type="text"
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                 placeholder="Search by tag..."
+                 className="flex-1 bg-gray-100 border-none rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-tg-link/50 text-sm"
+               />
+               <button
+                 onClick={handleSearch}
+                 className="text-tg-link hover:opacity-70 p-1"
+               >
+                 <SearchIcon className="w-6 h-6" />
+               </button>
+
+               {/* Tags Autocomplete Dropdown */}
+               {searchQuery && filteredTags.length > 0 && (
+                 <div className="absolute top-12 left-0 right-0 bg-white shadow-xl border-t border-gray-100 max-h-60 overflow-y-auto z-50">
+                    {filteredTags.map(tag => (
+                      <div
+                        key={tag.id}
+                        onClick={() => handleTagClick(tag.name)}
+                        className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-blue-50 cursor-pointer text-sm flex items-center gap-2"
                       >
-                        <PhotoIcon className="w-6 h-6" />
-                      </button>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              disabled={loading}
-              className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-              aria-label="Create Folder"
-            >
-              <PlusIcon className="w-7 h-7" />
-            </button>
-          </div>
+                         <span className="text-gray-400">#</span>
+                         {tag.name}
+                      </div>
+                    ))}
+                 </div>
+               )}
+            </div>
+          ) : (
+            /* Normal Header */
+            <>
+              <div className="flex items-center gap-2 overflow-hidden flex-1">
+                {currentFolderId && (
+                  <button
+                    onClick={handleBack}
+                    className="text-tg-link hover:opacity-70 flex items-center -ml-2 pr-2"
+                  >
+                    <ChevronLeftIcon className="w-6 h-6" />
+                    <span className="text-base">Back</span>
+                  </button>
+                )}
+                <h1 className="text-lg font-semibold tracking-tight truncate">
+                  {currentTitle}
+                </h1>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => setIsSearchMode(true)}
+                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
+                  aria-label="Search"
+                >
+                  <SearchIcon className="w-6 h-6" />
+                </button>
+
+                <button
+                  onClick={handleUploadClick}
+                  disabled={loading}
+                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                  aria-label="Upload Images"
+                >
+                  <PhotoIcon className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  disabled={loading}
+                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                  aria-label="Create Folder"
+                >
+                  <PlusIcon className="w-7 h-7" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 

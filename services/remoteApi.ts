@@ -244,5 +244,37 @@ export const remoteApi: GalleryApi = {
 
     const itemData: BackendItem = await response.json();
     return mapBackendToFrontend(itemData);
+  },
+
+  async searchFiles(query: string): Promise<GalleryItem[]> {
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = `${API_BASE}/api/search`;
+
+    const body = {
+        userId,
+        query
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-Init-Data': initData
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Search failed: ${response.statusText}`);
+        }
+
+        const data: BackendItem[] = await response.json();
+        return data.map(mapBackendToFrontend);
+    } catch (error) {
+        console.error('[RemoteAPI] searchFiles failed', error);
+        return [];
+    }
   }
 };

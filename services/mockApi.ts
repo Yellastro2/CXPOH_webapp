@@ -117,5 +117,26 @@ export const mockApi: GalleryApi = {
 
     mockDb[itemIndex] = updatedItem;
     return updatedItem;
+  },
+
+  async searchFiles(query: string): Promise<GalleryItem[]> {
+    await delay(400);
+    const lowerQuery = query.toLowerCase().replace('#', '');
+
+    return mockDb.filter(item => {
+        // Search in title
+        if (item.title && item.title.toLowerCase().includes(lowerQuery)) return true;
+        // Search in comments
+        if (item.comment && item.comment.toLowerCase().includes(lowerQuery)) return true;
+        // Search in tags
+        if (item.tags) {
+             const itemTagNames = item.tags.map(tagId => {
+                 const tag = mockTags.find(t => t.id === tagId);
+                 return tag ? tag.name.toLowerCase() : '';
+             });
+             if (itemTagNames.some(name => name.includes(lowerQuery))) return true;
+        }
+        return false;
+    });
   }
 };
