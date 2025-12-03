@@ -4,7 +4,8 @@ import { GalleryGrid } from './components/GalleryGrid';
 import { Modal } from './components/Modal';
 import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
-import { PlusIcon, PhotoIcon, FolderIcon, ChevronLeftIcon, SearchIcon } from './components/Icons';
+import { DeleteFolderModal } from './components/DeleteFolderModal';
+import { PlusIcon, PhotoIcon, FolderIcon, ChevronLeftIcon, SearchIcon, TrashIcon } from './components/Icons';
 import { api } from './services/api'; // Use the API factory
 import { GalleryItem, ItemType, Tag } from './types';
 
@@ -29,6 +30,10 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
+
+  // Folder Deletion State
+  const [isFolderDeleteModalOpen, setIsFolderDeleteModalOpen] = useState(false);
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
   // Search State
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -233,6 +238,24 @@ function App() {
     loadItems(); // Refresh content
   };
 
+  const handleDeleteFolder = async (saveContent: boolean) => {
+    if (!currentFolderId) return;
+    setIsDeletingFolder(true);
+    try {
+      await api.deleteItem(currentFolderId, saveContent);
+      setIsFolderDeleteModalOpen(false);
+      handleBack(); // Go up one level
+      // Note: loadItems is triggered by effect on folderPath change
+      // However, we should also reload AllFolders to update the picker/title map if needed
+      loadAllFolders();
+    } catch (error) {
+      console.error("Delete folder failed", error);
+      alert("Failed to delete folder");
+    } finally {
+      setIsDeletingFolder(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setLoading(true);
@@ -344,6 +367,17 @@ function App() {
               </div>
 
               <div className="flex items-center gap-1 shrink-0">
+                {currentFolderId && (
+                  <button
+                    onClick={() => setIsFolderDeleteModalOpen(true)}
+                    disabled={loading}
+                    className="text-red-500 hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                    aria-label="Delete Folder"
+                  >
+                    <TrashIcon className="w-6 h-6 text-red-500" />
+                  </button>
+                )}
+
                 <button
                   onClick={() => setIsSearchMode(true)}
                   className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
@@ -439,6 +473,15 @@ function App() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleCreateFolder}
+      />
+
+      {/* Folder Deletion Modal */}
+      <DeleteFolderModal
+        isOpen={isFolderDeleteModalOpen}
+        onClose={() => setIsFolderDeleteModalOpen(false)}
+        onDeleteOnly={() => handleDeleteFolder(true)}
+        onDeleteAll={() => handleDeleteFolder(false)}
+        isLoading={isDeletingFolder}
       />
 
       {/* Image Viewer */}
