@@ -138,5 +138,10 @@ export const mockApi: GalleryApi = {
         }
         return false;
     });
+  },
+
+  async deleteItem(itemId: string, saveContent?: boolean): Promise<void> {
+    await delay(300);
+    mockDb = mockDb.filter(item => item.id !== itemId);
   }
 };

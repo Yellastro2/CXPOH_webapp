@@ -32,6 +32,7 @@ export interface GalleryApi {
   getAllTags(): Promise<Tag[]>;
   updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem>;
   searchFiles(query: string): Promise<GalleryItem[]>;
+  deleteItem(itemId: string, saveContent?: boolean): Promise<void>;
 }
 
 // Minimal Telegram Web App Types

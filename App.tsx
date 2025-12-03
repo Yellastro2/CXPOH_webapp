@@ -228,6 +228,11 @@ function App() {
     loadTags();
   };
 
+  const handleItemDelete = (deletedItemId: string) => {
+    setViewingImageIndex(null); // Close viewer
+    loadItems(); // Refresh content
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setLoading(true);
@@ -445,6 +450,7 @@ function App() {
           onMoveToFolder={handleMoveToFolderRequest}
           tagsMap={tagsMap}
           onItemUpdate={handleItemUpdate}
+          onItemDelete={handleItemDelete}
         />
       )}
 

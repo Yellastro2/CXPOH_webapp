@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GalleryItem } from '../types';
-import { CloseIcon, MoveToFolderIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ExtraIcon, ShareIcon, CheckIcon } from './Icons';
+import { CloseIcon, MoveToFolderIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, ExtraIcon, ShareIcon, CheckIcon, TrashIcon } from './Icons';
 import { api } from '../services/api';
+import { ConfirmModal } from './ConfirmModal';
 
 interface ImageViewerProps {
   images: GalleryItem[];
@@ -11,6 +12,7 @@ interface ImageViewerProps {
   onMoveToFolder: (imageId: string) => void;
   tagsMap?: Record<string, string>;
   onItemUpdate?: (item: GalleryItem) => void;
+  onItemDelete?: (itemId: string) => void;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
@@ -19,7 +21,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   onClose,
   onMoveToFolder,
   tagsMap = {},
-  onItemUpdate
+  onItemUpdate,
+  onItemDelete
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
@@ -41,6 +44,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [editComment, setEditComment] = useState("");
   const [editTags, setEditTags] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Touch Logic References
   const touchStartX = useRef<number | null>(null);
@@ -83,7 +90,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // Handle Keyboard Navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isAnimating || isExtraMode) return;
+      if (isAnimating || isExtraMode || isDeleteModalOpen) return;
       if (e.key === 'Escape') onClose();
       // Only navigate if not zoomed
       if (zoom <= 1) {
@@ -93,7 +100,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, images.length, isAnimating, zoom, isExtraMode]);
+  }, [currentIndex, images.length, isAnimating, zoom, isExtraMode, isDeleteModalOpen]);
 
   const slideTo = useCallback((direction: 'prev' | 'next') => {
     if (isAnimating) return;
@@ -134,8 +141,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // --- Touch Handlers ---
 
   const onTouchStart = (e: React.TouchEvent) => {
-    // Disable gestures if in edit mode to allow text selection/scrolling
-    if (isAnimating || isExtraMode) return;
+    // Disable gestures if in edit mode or delete modal is open
+    if (isAnimating || isExtraMode || isDeleteModalOpen) return;
 
     // 1. Handle Double Tap
     const now = Date.now();
@@ -171,7 +178,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
-    if (isAnimating || isExtraMode) return;
+    if (isAnimating || isExtraMode || isDeleteModalOpen) return;
 
     // Pinch Zoom Logic
     if (e.touches.length === 2 && initialZoomDist.current) {
@@ -207,7 +214,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const onTouchEnd = () => {
-    if (isAnimating || isExtraMode) return;
+    if (isAnimating || isExtraMode || isDeleteModalOpen) return;
 
     setIsZooming(false);
     touchStartX.current = null;
@@ -290,6 +297,28 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     }
   };
 
+  const handleDeleteClick = () => {
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!currentImage) return;
+
+    setIsDeleting(true);
+    try {
+        await api.deleteItem(currentImage.id);
+        if (onItemDelete) {
+            onItemDelete(currentImage.id);
+        }
+        setIsDeleteModalOpen(false);
+    } catch (error) {
+        console.error("Failed to delete item", error);
+        alert("Failed to delete item");
+    } finally {
+        setIsDeleting(false);
+    }
+  };
+
   // Render Helpers
   const prevImage = images[currentIndex - 1];
   const nextImage = images[currentIndex + 1];
@@ -355,6 +384,13 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
             >
             <MoveToFolderIcon className="w-8 h-8" />
+            </button>
+
+            <button
+            onClick={handleDeleteClick}
+            className="text-white p-2 hover:bg-white/10 rounded-full transition-colors flex flex-col items-center gap-1"
+            >
+              <TrashIcon className="w-8 h-8" />
             </button>
 
             <button
@@ -499,6 +535,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             {currentIndex + 1} / {images.length}
         </div>
       )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        title="Delete File"
+        message="Are you sure you want to permanently delete this file?"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setIsDeleteModalOpen(false)}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

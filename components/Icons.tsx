@@ -74,3 +74,9 @@ export const SearchIcon: React.FC<{ className?: string }> = ({ className = "w-6 
     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
   </svg>
 );
+
+export const TrashIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
+  <svg width="36" height="37" viewBox="0 0 36 37" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <path d="M10.5 28.6566C10.5 30.3157 11.85 31.673 13.5 31.673H22.5C24.15 31.673 25.5 30.3157 25.5 28.6566V10.5582H10.5V28.6566ZM27 7.5418H23.25L22.17 6.33524H13.83L12.75 7.5418H9V10.5582H27V7.5418Z" fill="white"/>
+  </svg>
+);

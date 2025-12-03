@@ -304,5 +304,30 @@ export const remoteApi: GalleryApi = {
         console.error('[RemoteAPI] searchFiles failed', error);
         return [];
     }
+  },
+
+  async deleteItem(itemId: string, saveContent?: boolean): Promise<void> {
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = `${API_BASE}/api/folders/delete`;
+
+    const body = {
+      userId,
+      nodeId: itemId,
+      saveContent: saveContent
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': initData
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete item: ${response.statusText}`);
+    }
   }
 };
