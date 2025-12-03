@@ -36,7 +36,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
         <div className="flex justify-between items-center p-4 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900">New Folder</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <CloseIcon className="w-5 h-5" />
+            <CloseIcon className="w-6 h-6 text-tg-link" />
           </button>
         </div>
         

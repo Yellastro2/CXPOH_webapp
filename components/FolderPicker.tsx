@@ -20,7 +20,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
         <div className="flex justify-between items-center p-4 bg-tg-header border-b border-tg-separator">
           <h3 className="text-lg font-semibold text-gray-900">Select Folder</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-1">
-            <CloseIcon className="w-6 h-6" />
+            <CloseIcon className="w-6 h-6 text-tg-link" />
           </button>
         </div>
 
