@@ -106,12 +106,40 @@ export const remoteApi: GalleryApi = {
   },
 
   async getAllFolders(): Promise<GalleryItem[]> {
-    // API limitation: No endpoint to get all folders recursively.
-    // Strategy: Fetch root items and filter for folders.
-    // This allows moving items to root-level folders at least.
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = new URL(`${API_BASE}/api/folders/flat`, window.location.origin);
+    url.searchParams.append('userId', userId);
+
     try {
-      const rootItems = await this.getItems(undefined);
-      return rootItems.filter(i => i.type === ItemType.FOLDER);
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-Telegram-Init-Data': initData
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch folders: ${response.statusText}`);
+      }
+
+      interface FlatFolderDto {
+        id: string;
+        name: string;
+        parentId: string | null;
+        comment?: string | null;
+      }
+
+      const data: FlatFolderDto[] = await response.json();
+      return data.map(f => ({
+        id: f.id,
+        type: ItemType.FOLDER,
+        title: f.name,
+        // Handle explicit "null" string or actual null/undefined
+        parentId: (f.parentId === 'null' || !f.parentId) ? undefined : f.parentId,
+        createdAt: 0
+      }));
     } catch (error) {
       console.error('[RemoteAPI] getAllFolders failed', error);
       return [];
