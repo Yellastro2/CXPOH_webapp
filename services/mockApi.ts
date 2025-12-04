@@ -10,6 +10,9 @@ const getRandomImage = (): string => {
   return `https://picsum.photos/seed/${seed}/500/500`;
 };
 
+// Mock Video URL (Public domain test video)
+const MOCK_VIDEO_URL = "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4";
+
 // Mock Tags
 let mockTags: Tag[] = [
   { id: 'tag1', name: 'Nature' },
@@ -18,16 +21,17 @@ let mockTags: Tag[] = [
 ];
 
 // Initial state simulation (In-memory database)
-let mockDb: GalleryItem[] = Array.from({ length: 10 }, (_, i) => {
+let mockDb: GalleryItem[] = Array.from({ length: 12 }, (_, i) => {
   const url = getRandomImage();
+  const isVideo = i === 3 || i === 7; // Mock videos at specific indices
   return {
     id: generateId(),
-    type: ItemType.IMAGE,
-    url: url,
-    fullUrl: url,
+    type: isVideo ? ItemType.VIDEO : ItemType.IMAGE,
+    url: url, // Preview is always an image
+    fullUrl: isVideo ? MOCK_VIDEO_URL : url, // Full URL is video for video types
     createdAt: Date.now(),
     tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
-    comment: i % 3 === 0 ? "This is a sample comment for the photo." : undefined
+    comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined)
   };
 });
 

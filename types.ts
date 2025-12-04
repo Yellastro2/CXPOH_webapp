@@ -1,7 +1,8 @@
 
 export enum ItemType {
   FOLDER = 'FOLDER',
-  IMAGE = 'IMAGE'
+  IMAGE = 'IMAGE',
+  VIDEO = 'VIDEO'
 }
 
 export interface Tag {
@@ -13,8 +14,8 @@ export interface GalleryItem {
   id: string;
   type: ItemType;
   title?: string; // For folders
-  url?: string;   // For images (Preview variant)
-  fullUrl?: string; // For images (Full variant)
+  url?: string;   // For images/videos (Preview variant)
+  fullUrl?: string; // For images/videos (Full variant)
   createdAt: number;
   parentId?: string; // ID of the folder containing this item
 

@@ -1,17 +1,20 @@
+
 import React from 'react';
 import { GalleryItem, ItemType } from '../types';
-import { FolderIcon } from './Icons';
+import { FolderIcon, PlayIcon } from './Icons';
 
 interface GalleryGridProps {
   items: GalleryItem[];
+  onItemClick: (item: GalleryItem) => void;
 }
 
-export const GalleryGrid: React.FC<GalleryGridProps> = ({ items }) => {
+export const GalleryGrid: React.FC<GalleryGridProps> = ({ items, onItemClick }) => {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 pb-20">
       {items.map((item) => (
         <div 
           key={item.id} 
+          onClick={() => onItemClick(item)}
           className={`
             relative group overflow-hidden rounded-xl aspect-square shadow-sm transition-transform active:scale-95 duration-200 cursor-pointer
             ${item.type === ItemType.FOLDER ? 'bg-white flex flex-col items-center justify-center p-4' : 'bg-gray-200'}
@@ -36,6 +39,15 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({ items }) => {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors" />
+              
+              {/* Video Overlay */}
+              {item.type === ItemType.VIDEO && (
+                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                     <div className="bg-black/30 rounded-full p-2 backdrop-blur-[2px]">
+                        <PlayIcon className="w-8 h-8 text-white opacity-90" />
+                     </div>
+                 </div>
+              )}
             </div>
           )}
         </div>

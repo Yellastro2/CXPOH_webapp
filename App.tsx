@@ -5,7 +5,7 @@ import { Modal } from './components/Modal';
 import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
 import { DeleteFolderModal } from './components/DeleteFolderModal';
-import { PlusIcon, PhotoIcon, FolderIcon, ChevronLeftIcon, SearchIcon, TrashIcon } from './components/Icons';
+import { PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon } from './components/Icons';
 import { api } from './services/api'; // Use the API factory
 import { GalleryItem, ItemType, Tag } from './types';
 
@@ -126,8 +126,9 @@ function App() {
     }
   };
 
-  const visibleImages = useMemo(() => {
-    return items.filter(item => item.type === ItemType.IMAGE);
+  // Includes both Images and Videos
+  const visibleMedia = useMemo(() => {
+    return items.filter(item => item.type === ItemType.IMAGE || item.type === ItemType.VIDEO);
   }, [items]);
 
   // Filtered tags for search autocomplete
@@ -188,7 +189,7 @@ function App() {
       }
       setFolderPath(prev => [...prev, item.id]);
     } else {
-      const index = visibleImages.findIndex(img => img.id === item.id);
+      const index = visibleMedia.findIndex(img => img.id === item.id);
       if (index !== -1) {
         setViewingImageIndex(index);
       }
@@ -281,10 +282,12 @@ function App() {
     searchInputRef.current?.focus();
   };
 
-  // Sort: Folders first, then Images
+  // Sort: Folders first, then Media (Images/Videos)
   const sortedItems = [...items].sort((a, b) => {
-    if (a.type === b.type) return 0;
-    return a.type === ItemType.FOLDER ? -1 : 1;
+    // Folders always come first
+    if (a.type === ItemType.FOLDER && b.type !== ItemType.FOLDER) return -1;
+    if (a.type !== ItemType.FOLDER && b.type === ItemType.FOLDER) return 1;
+    return 0;
   });
 
   const currentTitle = currentFolderId
@@ -419,40 +422,7 @@ function App() {
             <p>Empty folder</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 pb-20">
-             {sortedItems.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleItemClick(item)}
-                  className={`
-                    relative group overflow-hidden rounded-xl aspect-square shadow-sm transition-transform active:scale-95 duration-200 cursor-pointer
-                    ${item.type === ItemType.FOLDER ? 'bg-white flex flex-col items-center justify-center p-4' : 'bg-gray-200'}
-                  `}
-                >
-                  {item.type === ItemType.FOLDER ? (
-                    <>
-                      <div className="text-blue-400 mb-2">
-                        <FolderIcon className="w-16 h-16 drop-shadow-sm" />
-                      </div>
-                      <span className="text-center text-sm font-medium text-gray-900 line-clamp-2 px-1 break-words w-full">
-                        {item.title}
-                      </span>
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </>
-                  ) : (
-                    <div className="w-full h-full relative">
-                      <img
-                        src={item.url}
-                        alt="Gallery item"
-                        loading="lazy"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors" />
-                    </div>
-                  )}
-                </div>
-              ))}
-          </div>
+          <GalleryGrid items={sortedItems} onItemClick={handleItemClick} />
         )}
       </main>
 
@@ -485,10 +455,10 @@ function App() {
       />
 
       {/* Image Viewer */}
-      {viewingImageIndex !== null && visibleImages.length > 0 && (
+      {viewingImageIndex !== null && visibleMedia.length > 0 && (
         <ImageViewer
-          images={visibleImages}
-          initialIndex={Math.min(viewingImageIndex, visibleImages.length - 1)} // Safety clamp
+          images={visibleMedia}
+          initialIndex={Math.min(viewingImageIndex, visibleMedia.length - 1)} // Safety clamp
           onClose={() => setViewingImageIndex(null)}
           onMoveToFolder={handleMoveToFolderRequest}
           tagsMap={tagsMap}

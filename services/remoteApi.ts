@@ -26,6 +26,7 @@ interface BackendItem {
   id: string;
   name: string;
   type: 'FILE' | 'FOLDER';
+  fileType?: 'IMAGE' | 'VIDEO'; // New field
   storageId?: string | null;
   sizeBytes?: number;
   tags?: string[];
@@ -34,6 +35,7 @@ interface BackendItem {
 
 const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
   const isFolder = item.type === 'FOLDER';
+  const isVideo = item.fileType === 'VIDEO';
 
   let previewUrl = undefined;
   let fullUrl = undefined;
@@ -48,6 +50,9 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
       variant: 'PREVIEW',
       initData: initData
     });
+    if (item.fileType) {
+      previewParams.append('fileType', item.fileType);
+    }
     previewUrl = `${baseUrl}?${previewParams.toString()}`;
 
     // Construct params for Full
@@ -56,15 +61,26 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
       variant: 'FULL',
       initData: initData
     });
+    if (item.fileType) {
+      fullParams.append('fileType', item.fileType);
+    }
     fullUrl = `${baseUrl}?${fullParams.toString()}`;
+  }
+
+  // Determine ItemType
+  let itemType = ItemType.IMAGE; // Default for files
+  if (isFolder) {
+    itemType = ItemType.FOLDER;
+  } else if (isVideo) {
+    itemType = ItemType.VIDEO;
   }
 
   return {
     id: item.id,
-    type: isFolder ? ItemType.FOLDER : ItemType.IMAGE,
+    type: itemType,
     title: item.name,
-    url: previewUrl, // Default URL is used for grid preview
-    fullUrl: fullUrl, // Full URL is used for full screen viewer
+    url: previewUrl, // Default URL is used for grid preview (for video it's the thumbnail)
+    fullUrl: fullUrl, // Full URL is used for full screen viewer (for video it's the thumbnail for now)
     // Since API doesn't return timestamps yet, default to 0 to avoid NaN
     createdAt: 0,
     parentId: undefined,
@@ -213,7 +229,7 @@ export const remoteApi: GalleryApi = {
     // Stub for UI responsiveness
     return {
       id: 'temp_' + Date.now(),
-      type: ItemType.IMAGE,
+      type: ItemType.IMAGE, // Default stub type
       url: URL.createObjectURL(file),
       title: file.name,
       createdAt: Date.now(),
@@ -312,7 +328,7 @@ export const remoteApi: GalleryApi = {
     const url = `${API_BASE}/api/folders/delete`;
 
     const body = {
-      userId,
+      userId: parseInt(userId), // Ensure numeric type for backend
       nodeId: itemId,
       saveContent: saveContent
     };
