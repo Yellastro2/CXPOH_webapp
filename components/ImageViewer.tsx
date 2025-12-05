@@ -72,6 +72,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setProgress(0);
     setDuration(0);
     setShowControls(true);
+    // Exit extra mode on slide change
+    setIsExtraMode(false);
+    setIsEditing(false);
   }, [currentIndex]);
 
   useEffect(() => {
@@ -153,7 +156,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setIsDragging(false);
 
     if (scale > 1) {
-       // Keep zoom, maybe boundaries check here?
+       // Keep zoom
        return;
     }
 
@@ -196,8 +199,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (!url) return;
 
     try {
-      // Fetch blob to ensure download works with auth headers/proxies if needed,
-      // or just force browser download behavior
       const response = await fetch(url);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
@@ -212,7 +213,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       URL.revokeObjectURL(blobUrl);
     } catch (e) {
       console.error("Download failed", e);
-      // Fallback
       window.open(url, '_blank');
     }
   };
@@ -255,6 +255,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       });
       onItemUpdate(updated);
       setIsEditing(false);
+      // Optional: keep extra mode open to show result
     } catch (e) {
       console.error("Update failed", e);
       alert("Failed to save updates");
@@ -316,10 +317,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       setIsLooping(!isLooping);
   };
 
-  // Determine current image/video source
-  // For Video:
-  // - If isVideoActive is true, we render the video player
-  // - Otherwise, we render the thumbnail
   const isVideo = currentItem.type === ItemType.VIDEO;
   const displayUrl = isVideo ? (currentItem.url || '') : (currentItem.fullUrl || currentItem.url || '');
 
@@ -333,11 +330,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={() => {
-             // If extra mode is open, close it (unless we clicked on controls, which stop propagation)
+             // Close extra mode if clicking empty space (and not editing)
              if (isExtraMode && !isEditing) {
                  setIsExtraMode(false);
-             } else {
-                 setShowControls(prev => !prev);
+                 return;
+             }
+             // Toggle controls if not in extra mode
+             if (!isExtraMode) {
+                setShowControls(prev => !prev);
              }
         }}
       >
@@ -348,7 +348,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
             transition: (isDragging || isResetting) ? 'none' : 'transform 0.3s ease-out'
           }}
         >
-          {/* Previous Image Placeholder */}
+          {/* Previous Image */}
           <div className="min-w-full h-full flex items-center justify-center">
              {currentIndex > 0 && (
                 <img
@@ -362,7 +362,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {/* Current Image / Video */}
           <div className="min-w-full h-full flex items-center justify-center relative">
 
-            {/* Video Player */}
             {isVideo && isVideoActive ? (
                 <div className="w-full h-full flex items-center justify-center bg-black relative">
                     <video
@@ -374,13 +373,15 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         onLoadedMetadata={handleVideoLoadedMetadata}
                         onEnded={() => setIsPlaying(false)}
                         onClick={(e) => {
-                             e.stopPropagation(); // Don't toggle extra mode
-                             setShowControls(prev => !prev);
+                             if (!isExtraMode) {
+                                e.stopPropagation();
+                                setShowControls(prev => !prev);
+                             }
                         }}
                     />
 
-                    {/* Centered Play/Pause Button */}
-                    {showControls && (
+                    {/* Play/Pause Button (Center) - Hidden in Extra Mode */}
+                    {showControls && !isExtraMode && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <button
                                 onClick={togglePlay}
@@ -395,13 +396,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         </div>
                     )}
 
-                    {/* Custom Video Controls Bottom Bar */}
-                    {showControls && (
+                    {/* Video Controls Bottom Bar - Hidden in Extra Mode */}
+                    {showControls && !isExtraMode && (
                         <div
                              className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pb-8 flex flex-col gap-2 pointer-events-auto"
                              onClick={(e) => e.stopPropagation()}
                         >
-                            {/* Time and Scrubber Row */}
                             <div className="flex items-center gap-3">
                                 <span className="text-white text-xs font-mono w-10">
                                     {formatTime(progress)}
@@ -419,9 +419,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                                 </span>
                             </div>
 
-                            {/* Volume and Loop Controls Row */}
                             <div className="flex items-center justify-end gap-4 mt-1">
-                                {/* Volume Group */}
                                 <div className="flex items-center gap-2 bg-black/20 rounded-lg px-2 py-1">
                                     <button onClick={toggleMute} className="text-white hover:text-blue-400">
                                         {isMuted || volume === 0 ? (
@@ -441,7 +439,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                                     />
                                 </div>
 
-                                {/* Loop Toggle */}
                                 <button
                                     onClick={toggleLoop}
                                     className={`p-1 rounded-md transition-colors ${isLooping ? 'text-blue-400 bg-white/10' : 'text-white/70 hover:text-white'}`}
@@ -453,7 +450,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     )}
                 </div>
             ) : (
-                /* Image / Video Thumbnail */
+                /* Image / Thumbnail */
                 <div
                     className="w-full h-full relative flex items-center justify-center"
                     style={{
@@ -469,8 +466,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         draggable={false}
                     />
 
-                    {/* Play Button Overlay for Video */}
-                    {isVideo && (
+                    {isVideo && !isExtraMode && (
                         <div className="absolute inset-0 flex items-center justify-center">
                             <button
                                 onClick={(e) => {
@@ -494,7 +490,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
           </div>
 
-          {/* Next Image Placeholder */}
+          {/* Next Image */}
           <div className="min-w-full h-full flex items-center justify-center">
              {currentIndex < images.length - 1 && (
                 <img
@@ -507,96 +503,94 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         </div>
       </div>
 
-      {/* --- Top Bar (Close Button Only) --- */}
-      <div
-        className={`absolute top-0 left-0 p-4 flex z-50 transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}
-      >
-        <button onClick={onClose} className="text-white hover:opacity-70 pointer-events-auto p-1 drop-shadow-md">
+      {/* --- Close Button --- */}
+      <div className={`absolute top-0 left-0 p-4 z-50 transition-opacity duration-300 ${showControls || isExtraMode ? 'opacity-100' : 'opacity-0'}`}>
+        <button onClick={onClose} className="text-white hover:opacity-70 drop-shadow-md">
           <CloseIcon className="w-8 h-8" />
         </button>
       </div>
 
-      {/* --- Right Actions Column --- */}
+      {/* --- Action Buttons (Right) --- */}
       <div
-        className={`absolute top-1/2 right-0 -translate-y-1/2 p-4 flex flex-col gap-6 z-50 transition-opacity duration-300 pointer-events-none ${showControls ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute ${isExtraMode ? 'top-0 right-0 p-4' : 'top-1/2 right-0 -translate-y-1/2 p-4'} flex flex-col gap-6 z-50 transition-all duration-300 ${showControls || isExtraMode ? 'opacity-100' : 'opacity-0'}`}
       >
-          {/* Extra / Edit Button */}
+          {/* Extra / Save Button (Always visible in this column if controls/extra shown) */}
           <button
             onClick={() => isEditing ? handleSaveMetadata() : toggleExtraMode()}
-            className={`text-white p-1 hover:opacity-70 pointer-events-auto drop-shadow-md ${isExtraMode ? 'text-blue-400' : ''}`}
+            className={`text-white p-1 hover:opacity-70 drop-shadow-md ${isExtraMode ? 'text-blue-400' : ''}`}
           >
              {isEditing ? <CheckIcon className="w-7 h-7" /> : <ExtraIcon className="w-7 h-7" />}
           </button>
 
-          <button onClick={handleDownload} className="text-white hover:opacity-70 pointer-events-auto drop-shadow-md p-1">
-            <DownloadIcon className="w-7 h-7" />
-          </button>
+          {/* Hide secondary actions in Extra Mode */}
+          {!isExtraMode && (
+            <>
+              <button onClick={handleDownload} className="text-white hover:opacity-70 drop-shadow-md p-1">
+                <DownloadIcon className="w-7 h-7" />
+              </button>
 
-          <button
-             onClick={() => onMoveToFolder(currentItem.id)}
-             className="text-white hover:opacity-70 pointer-events-auto drop-shadow-md p-1"
-          >
-            <MoveToFolderIcon className="w-7 h-7" />
-          </button>
+              <button
+                onClick={() => onMoveToFolder(currentItem.id)}
+                className="text-white hover:opacity-70 drop-shadow-md p-1"
+              >
+                <MoveToFolderIcon className="w-7 h-7" />
+              </button>
 
-          <button
-             onClick={() => setIsConfirmDeleteOpen(true)}
-             className="text-white hover:opacity-70 pointer-events-auto drop-shadow-md p-1"
-          >
-            <TrashIcon className="w-7 h-7 text-red-400" />
-          </button>
+              <button
+                onClick={() => setIsConfirmDeleteOpen(true)}
+                className="text-white hover:opacity-70 drop-shadow-md p-1"
+              >
+                <TrashIcon className="w-7 h-7 text-red-400" />
+              </button>
+            </>
+          )}
       </div>
 
-      {/* --- Bottom Extra Overlay --- */}
+      {/* --- Extra Overlay --- */}
       {isExtraMode && (
           <div
              className="absolute inset-0 z-40 flex flex-col justify-end"
              onClick={(e) => {
-                 // Close if clicking the empty space above
+                 // Clicking on the overlay background (empty top space) closes extra mode
                  if (!isEditing) setIsExtraMode(false);
              }}
           >
             <div
-                className="bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-12 pb-8 px-6 text-white"
-                onClick={(e) => e.stopPropagation()} // Prevent close when clicking text
+                className="bg-gradient-to-t from-black/90 via-black/80 to-transparent pt-12 pb-10 px-6 text-white w-full"
+                onClick={(e) => e.stopPropagation()}
             >
                {isEditing ? (
-                  <div className="flex flex-col gap-3 animate-fadeIn">
+                  <div className="flex flex-col gap-4 animate-fadeIn">
                       <input
                          type="text"
-                         className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:outline-none focus:border-blue-500"
-                         placeholder="Tags (space separated)"
+                         className="bg-transparent border-none p-0 text-blue-300 placeholder-white/30 focus:ring-0 text-lg font-medium w-full"
+                         placeholder="Add tags (space separated)..."
                          value={editTags}
                          onChange={e => setEditTags(e.target.value)}
+                         autoFocus
                       />
                       <textarea
-                         className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:outline-none focus:border-blue-500 min-h-[80px]"
+                         className="bg-transparent border-none p-0 text-white placeholder-white/30 focus:ring-0 text-base leading-relaxed resize-none w-full min-h-[100px]"
                          placeholder="Add a comment..."
                          value={editComment}
                          onChange={e => setEditComment(e.target.value)}
                       />
-                      <button
-                         onClick={handleSaveMetadata}
-                         className="bg-blue-600 text-white font-medium py-2 rounded-lg mt-2 active:scale-95 transition-transform"
-                      >
-                         Save
-                      </button>
                   </div>
                ) : (
-                  <div className="flex flex-col gap-2" onClick={() => setIsEditing(true)}>
-                     <div className="flex flex-wrap gap-2 mb-1">
+                  <div className="flex flex-col gap-3" onClick={() => setIsEditing(true)}>
+                     <div className="flex flex-wrap gap-2">
                         {currentTagsNames.length > 0 ? (
                            currentTagsNames.map((tag, idx) => (
-                              <span key={idx} className="font-medium text-blue-300">
+                              <span key={idx} className="font-medium text-blue-300 text-lg">
                                  #{tag}
                               </span>
                            ))
                         ) : (
-                           <span className="text-gray-400 italic">Tap to add tags...</span>
+                           <span className="text-gray-500 italic text-lg">#tags</span>
                         )}
                      </div>
-                     <p className="text-sm leading-relaxed text-gray-200">
-                        {currentItem.comment || <span className="text-gray-400 italic">Tap to add a comment...</span>}
+                     <p className="text-base leading-relaxed text-gray-200 whitespace-pre-wrap">
+                        {currentItem.comment || <span className="text-gray-500 italic">Description...</span>}
                      </p>
                   </div>
                )}
@@ -604,8 +598,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           </div>
       )}
 
-      {/* --- Desktop Nav Arrows --- */}
-      {showControls && (
+      {/* --- Nav Arrows (Desktop) --- */}
+      {showControls && !isExtraMode && (
         <>
           <button
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white hidden md:block z-50 p-2"
