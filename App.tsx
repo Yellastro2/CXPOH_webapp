@@ -390,14 +390,6 @@ function App() {
                 </button>
 
                 <button
-                  onClick={handleUploadClick}
-                  disabled={loading}
-                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-                  aria-label="Upload Images"
-                >
-                  <PhotoIcon className="w-6 h-6" />
-                </button>
-                <button
                   onClick={() => setIsModalOpen(true)}
                   disabled={loading}
                   className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"

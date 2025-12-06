@@ -31,7 +31,8 @@ let mockDb: GalleryItem[] = Array.from({ length: 12 }, (_, i) => {
     fullUrl: isVideo ? MOCK_VIDEO_URL : url, // Full URL is video for video types
     createdAt: Date.now(),
     tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
-    comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined)
+    comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined),
+    sizeBytes: isVideo ? 15 * 1024 * 1024 : 1024 * 500 // 15MB video, 500KB image
   };
 });
 
@@ -82,7 +83,8 @@ export const mockApi: GalleryApi = {
       fullUrl: url,
       title: file.name,
       createdAt: Date.now(),
-      parentId: parentId
+      parentId: parentId,
+      sizeBytes: file.size
     };
     mockDb.push(newItem);
     return newItem;

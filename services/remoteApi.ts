@@ -81,9 +81,9 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
     title: item.name,
     url: previewUrl, // Default URL is used for grid preview (for video it's the thumbnail)
     fullUrl: fullUrl, // Full URL is used for full screen viewer (for video it's the thumbnail for now)
-    // Since API doesn't return timestamps yet, default to 0 to avoid NaN
     createdAt: 0,
     parentId: undefined,
+    sizeBytes: item.sizeBytes, // Map sizeBytes
     tags: item.tags,
     comment: item.comment
   };
