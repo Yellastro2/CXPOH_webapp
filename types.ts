@@ -20,6 +20,8 @@ export interface GalleryItem {
   parentId?: string; // ID of the folder containing this item
 
   // Metadata
+  storageId?: string; // Internal Backend ID needed for API operations
+  sizeBytes?: number;
   tags?: string[]; // Array of tag IDs
   comment?: string;
 }
@@ -34,6 +36,7 @@ export interface GalleryApi {
   updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem>;
   searchFiles(query: string): Promise<GalleryItem[]>;
   deleteItem(itemId: string, saveContent?: boolean): Promise<void>;
+  sendToTelegram(item: GalleryItem): Promise<void>;
 }
 
 // Minimal Telegram Web App Types

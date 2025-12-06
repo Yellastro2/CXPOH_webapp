@@ -8,6 +8,7 @@ import { DeleteFolderModal } from './components/DeleteFolderModal';
 import { PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon } from './components/Icons';
 import { api } from './services/api'; // Use the API factory
 import { GalleryItem, ItemType, Tag } from './types';
+import { STRINGS } from './resources';
 
 function App() {
   const [items, setItems] = useState<GalleryItem[]>([]);
@@ -136,8 +137,8 @@ function App() {
     if (!searchQuery) return [];
     // Strip leading hash to allow searching like "#nature" or just "nature"
     // Also allows showing all tags if user just types "#"
-    const query = searchQuery.toLowerCase().replace(/^#/, '');
-    const tagList = Object.entries(tagsMap).map(([id, name]) => ({ id, name }));
+    const query = (searchQuery as string).toLowerCase().replace(/^#/, '');
+    const tagList = Object.entries(tagsMap).map(([id, name]) => ({ id, name: name as string }));
     return tagList.filter(t => t.name.toLowerCase().includes(query));
   }, [searchQuery, tagsMap]);
 
@@ -227,7 +228,7 @@ function App() {
   };
 
   const handleItemUpdate = (updatedItem: GalleryItem) => {
-    setItems(prevItems => prevItems.map(item =>
+    setItems(prevItems => prevItems.map(item => 
         item.id === updatedItem.id ? updatedItem : item
     ));
     // Also refresh tags in case new ones were created
@@ -248,10 +249,10 @@ function App() {
       handleBack(); // Go up one level
       // Note: loadItems is triggered by effect on folderPath change
       // However, we should also reload AllFolders to update the picker/title map if needed
-      loadAllFolders();
+      loadAllFolders(); 
     } catch (error) {
       console.error("Delete folder failed", error);
-      alert("Failed to delete folder");
+      alert(STRINGS.ERRORS.DELETE_FOLDER);
     } finally {
       setIsDeletingFolder(false);
     }
@@ -291,8 +292,8 @@ function App() {
   });
 
   const currentTitle = currentFolderId
-    ? (folderTitleMap[currentFolderId] || 'Folder')
-    : 'Gallery';
+    ? (folderTitleMap[currentFolderId] || STRINGS.HEADER.FOLDER_TITLE_DEFAULT)
+    : STRINGS.HEADER.DEFAULT_TITLE;
 
   return (
     <div className="min-h-screen bg-tg-bg font-sans text-tg-text">
@@ -309,11 +310,11 @@ function App() {
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-tg-header/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between relative">
-
+          
           {isSearchMode ? (
             /* Search Mode Header */
             <div className="flex w-full items-center gap-2 animate-fadeIn">
-               <button
+               <button 
                  onClick={handleExitSearch}
                  className="text-tg-link hover:opacity-70 p-1"
                >
@@ -325,10 +326,10 @@ function App() {
                  value={searchQuery}
                  onChange={(e) => setSearchQuery(e.target.value)}
                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                 placeholder="Search by tag..."
+                 placeholder={STRINGS.SEARCH.PLACEHOLDER}
                  className="flex-1 bg-gray-100 border-none rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-tg-link/50 text-sm"
                />
-               <button
+               <button 
                  onClick={handleSearch}
                  className="text-tg-link hover:opacity-70 p-1"
                >
@@ -339,7 +340,7 @@ function App() {
                {searchQuery && filteredTags.length > 0 && (
                  <div className="absolute top-12 left-0 right-0 bg-white shadow-xl border-t border-gray-100 max-h-60 overflow-y-auto z-50">
                     {filteredTags.map(tag => (
-                      <div
+                      <div 
                         key={tag.id}
                         onClick={() => handleTagClick(tag.name)}
                         className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-blue-50 cursor-pointer text-sm flex items-center gap-2"
@@ -361,7 +362,7 @@ function App() {
                     className="text-tg-link hover:opacity-70 flex items-center -ml-2 pr-2"
                   >
                     <ChevronLeftIcon className="w-6 h-6" />
-                    <span className="text-base">Back</span>
+                    <span className="text-base">{STRINGS.HEADER.BACK}</span>
                   </button>
                 )}
                 <h1 className="text-lg font-semibold tracking-tight truncate">
@@ -380,7 +381,7 @@ function App() {
                     <TrashIcon className="w-6 h-6 text-red-500" />
                   </button>
                 )}
-
+                
                 <button
                   onClick={() => setIsSearchMode(true)}
                   className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
@@ -388,7 +389,15 @@ function App() {
                 >
                   <SearchIcon className="w-6 h-6" />
                 </button>
-
+                
+                <button
+                  onClick={handleUploadClick}
+                  disabled={loading}
+                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                  aria-label="Upload Images"
+                >
+                  <PhotoIcon className="w-6 h-6" />
+                </button>
                 <button
                   onClick={() => setIsModalOpen(true)}
                   disabled={loading}
@@ -411,7 +420,7 @@ function App() {
           </div>
         ) : sortedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-tg-hint">
-            <p>Empty folder</p>
+            <p>{STRINGS.EMPTY_STATE.FOLDER}</p>
           </div>
         ) : (
           <GalleryGrid items={sortedItems} onItemClick={handleItemClick} />
@@ -431,10 +440,10 @@ function App() {
         </div>
       )}
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateFolder}
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSubmit={handleCreateFolder} 
       />
 
       {/* Folder Deletion Modal */}

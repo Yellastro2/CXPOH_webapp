@@ -32,7 +32,8 @@ let mockDb: GalleryItem[] = Array.from({ length: 12 }, (_, i) => {
     createdAt: Date.now(),
     tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
     comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined),
-    sizeBytes: isVideo ? 15 * 1024 * 1024 : 1024 * 500 // 15MB video, 500KB image
+    sizeBytes: isVideo ? 15 * 1024 * 1024 : 1024 * 500, // 15MB video, 500KB image
+    storageId: `storage_${i}`
   };
 });
 
@@ -84,7 +85,8 @@ export const mockApi: GalleryApi = {
       title: file.name,
       createdAt: Date.now(),
       parentId: parentId,
-      sizeBytes: file.size
+      sizeBytes: file.size,
+      storageId: `storage_new_${Date.now()}`
     };
     mockDb.push(newItem);
     return newItem;
@@ -149,5 +151,12 @@ export const mockApi: GalleryApi = {
   async deleteItem(itemId: string, saveContent?: boolean): Promise<void> {
     await delay(300);
     mockDb = mockDb.filter(item => item.id !== itemId);
+  },
+
+  async sendToTelegram(item: GalleryItem): Promise<void> {
+    await delay(1000);
+    if (Math.random() > 0.8) {
+        throw new Error("Random mock error: Could not send to Telegram");
+    }
   }
 };

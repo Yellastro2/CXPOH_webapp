@@ -83,6 +83,7 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
     fullUrl: fullUrl, // Full URL is used for full screen viewer (for video it's the thumbnail for now)
     createdAt: 0,
     parentId: undefined,
+    storageId: item.storageId || undefined, // Map storageId for operations
     sizeBytes: item.sizeBytes, // Map sizeBytes
     tags: item.tags,
     comment: item.comment
@@ -344,6 +345,41 @@ export const remoteApi: GalleryApi = {
 
     if (!response.ok) {
       throw new Error(`Failed to delete item: ${response.statusText}`);
+    }
+  },
+
+  async sendToTelegram(item: GalleryItem): Promise<void> {
+    if (!item.storageId) {
+        throw new Error("Item has no storageId");
+    }
+
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = `${API_BASE}/api/telegram/send`;
+
+    const body = {
+        userId: parseInt(userId),
+        fileId: item.storageId,
+        type: item.type // IMAGE or VIDEO
+    };
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Init-Data': initData
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        // Try to parse error message
+        let errorMsg = response.statusText;
+        try {
+            const errJson = await response.json();
+            if (errJson.error) errorMsg = errJson.error;
+        } catch(e) { /* ignore */ }
+        throw new Error(errorMsg);
     }
   }
 };

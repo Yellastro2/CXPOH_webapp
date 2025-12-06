@@ -2,6 +2,7 @@
 import React, { useMemo } from 'react';
 import { GalleryItem } from '../types';
 import { FolderIcon, CloseIcon } from './Icons';
+import { STRINGS } from '../resources';
 
 interface FolderPickerProps {
   folders: GalleryItem[];
@@ -14,7 +15,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
   // Build a flat list with depth information for rendering a tree structure
   const hierarchy = useMemo(() => {
     const map = new Map<string, GalleryItem[]>();
-
+    
     // Group items by parentId
     folders.forEach(item => {
       const pid = item.parentId || 'root';
@@ -23,13 +24,13 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
     });
 
     const result: { item: GalleryItem; depth: number }[] = [];
-
+    
     // Recursive traversal to build order
     const traverse = (pid: string, depth: number) => {
       const children = map.get(pid) || [];
       // Sort alphabetically for cleaner tree
       children.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-
+      
       children.forEach(child => {
         result.push({ item: child, depth });
         traverse(child.id, depth + 1);
@@ -47,7 +48,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
       <div className="bg-tg-bg rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex justify-between items-center p-4 bg-tg-header border-b border-tg-separator shrink-0">
-          <h3 className="text-lg font-semibold text-gray-900">Select Folder</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{STRINGS.FOLDER_PICKER.TITLE}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-1">
             <CloseIcon className="w-6 h-6 text-tg-link" />
           </button>
@@ -63,7 +64,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
                <div className="w-10 h-10 flex items-center justify-center bg-gray-200 rounded-lg text-gray-500 shrink-0">
                   <div className="w-4 h-4 border-2 border-dashed border-gray-400 rounded-sm" />
                </div>
-               <span className="text-sm font-medium text-gray-900">Main Gallery</span>
+               <span className="text-sm font-medium text-gray-900">{STRINGS.FOLDER_PICKER.ROOT_OPTION}</span>
             </button>
 
             {/* Folder Tree */}
@@ -85,7 +86,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
 
             {folders.length === 0 && (
                <div className="text-center py-8 text-tg-hint text-sm">
-                 No folders created yet.
+                 {STRINGS.FOLDER_PICKER.EMPTY}
                </div>
             )}
         </div>

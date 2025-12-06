@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { STRINGS } from '../resources';
 
 interface AlertModalProps {
   isOpen: boolean;
@@ -18,8 +19,8 @@ export const AlertModal: React.FC<AlertModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform transition-all"
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform transition-all" 
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 text-center">
@@ -30,7 +31,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
               onClick={onClose}
               className="flex-1 py-3 text-white font-medium bg-tg-button hover:bg-blue-600 rounded-xl active:scale-95 transition-all shadow-md"
             >
-              OK
+              {STRINGS.MODAL_ALERT_SIZE.BUTTON_OK}
             </button>
           </div>
         </div>

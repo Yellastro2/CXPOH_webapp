@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { STRINGS } from '../resources';
 
 interface DeleteFolderModalProps {
   isOpen: boolean;
@@ -20,16 +21,16 @@ export const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all"
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all" 
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 text-center">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Delete Folder</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">{STRINGS.MODAL_DELETE_FOLDER.TITLE}</h3>
           <p className="text-sm text-gray-500 mb-6">
-            How do you want to proceed with the files inside this folder?
+            {STRINGS.MODAL_DELETE_FOLDER.MESSAGE}
           </p>
-
+          
           <div className="flex flex-col gap-3 w-full">
             <button
               onClick={onDeleteOnly}
@@ -39,7 +40,7 @@ export const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
               {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                  "Delete folder, move files to root"
+                  STRINGS.MODAL_DELETE_FOLDER.BUTTON_DELETE_ONLY
               )}
             </button>
 
@@ -51,7 +52,7 @@ export const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
               {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                  "Delete folder and all content"
+                  STRINGS.MODAL_DELETE_FOLDER.BUTTON_DELETE_ALL
               )}
             </button>
 
@@ -60,7 +61,7 @@ export const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({
               disabled={isLoading}
               className="w-full py-3 px-4 text-gray-900 font-medium bg-gray-100 hover:bg-gray-200 rounded-xl active:scale-95 transition-all"
             >
-              Cancel
+              {STRINGS.MODAL_DELETE_FOLDER.BUTTON_CANCEL}
             </button>
           </div>
         </div>

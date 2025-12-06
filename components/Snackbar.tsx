@@ -9,12 +9,12 @@ interface SnackbarProps {
   duration?: number;
 }
 
-export const Snackbar: React.FC<SnackbarProps> = ({
-  isOpen,
-  message,
-  type,
-  onClose,
-  duration = 3000
+export const Snackbar: React.FC<SnackbarProps> = ({ 
+  isOpen, 
+  message, 
+  type, 
+  onClose, 
+  duration = 3000 
 }) => {
   useEffect(() => {
     if (isOpen) {

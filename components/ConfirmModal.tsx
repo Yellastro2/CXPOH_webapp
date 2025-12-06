@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { STRINGS } from '../resources';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -22,8 +23,8 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={onCancel}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform transition-all"
+      <div 
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden transform transition-all" 
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6 text-center">
@@ -35,7 +36,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               disabled={isLoading}
               className="flex-1 py-3 text-gray-900 font-medium bg-gray-100 hover:bg-gray-200 rounded-xl active:scale-95 transition-all"
             >
-              Cancel
+              {STRINGS.MODAL_CONFIRM_DELETE_FILE.BUTTON_CANCEL}
             </button>
             <button
               onClick={onConfirm}
@@ -45,7 +46,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                  "Delete"
+                  STRINGS.MODAL_CONFIRM_DELETE_FILE.BUTTON_DELETE
               )}
             </button>
           </div>
