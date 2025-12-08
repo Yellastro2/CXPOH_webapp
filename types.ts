@@ -18,7 +18,7 @@ export interface GalleryItem {
   fullUrl?: string; // For images/videos (Full variant)
   createdAt: number;
   parentId?: string; // ID of the folder containing this item
-
+  
   // Metadata
   storageId?: string; // Internal Backend ID needed for API operations
   sizeBytes?: number;
@@ -67,6 +67,8 @@ export interface TelegramWebApp {
   viewportStableHeight: number;
   headerColor: string;
   backgroundColor: string;
+  onEvent: (eventType: string, eventHandler: () => void) => void;
+  offEvent: (eventType: string, eventHandler: () => void) => void;
   BackButton: {
     isVisible: boolean;
     onClick: (callback: () => void) => void;

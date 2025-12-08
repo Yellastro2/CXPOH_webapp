@@ -6,71 +6,52 @@ import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
 import { DeleteFolderModal } from './components/DeleteFolderModal';
 import { PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon } from './components/Icons';
-import { api } from './services/api'; // Use the API factory
-import { GalleryItem, ItemType, Tag } from './types';
+import { api } from './services/api'; 
+import { GalleryItem, ItemType } from './types';
 import { STRINGS } from './resources';
 
 function App() {
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(false);
-
-  // Navigation Stack: Stores the history of folder IDs.
-  // Empty array = Root. ['id1', 'id2'] = Root -> id1 -> id2.
   const [folderPath, setFolderPath] = useState<string[]>([]);
-
-  // Derived current folder ID
   const currentFolderId = folderPath.length > 0 ? folderPath[folderPath.length - 1] : undefined;
 
-  // Cache folder names for the header title
   const [folderTitleMap, setFolderTitleMap] = useState<Record<string, string>>({});
-  const [allFolders, setAllFolders] = useState<GalleryItem[]>([]); // For the picker
-
-  // Tags Mapping
+  const [allFolders, setAllFolders] = useState<GalleryItem[]>([]);
   const [tagsMap, setTagsMap] = useState<Record<string, string>>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
-
-  // Folder Deletion State
   const [isFolderDeleteModalOpen, setIsFolderDeleteModalOpen] = useState(false);
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
-  // Search State
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Track the image pending move
   const [imageToMoveId, setImageToMoveId] = useState<string | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showUploadButton = process.env.SHOW_UPLOAD_BUTTON === 'true';
 
-  // Load items when current folder changes
   useEffect(() => {
-    // If in search mode (showing results), we don't auto-reload folder content on nav change
-    // unless we explicitly exited search.
     if (!isSearchMode) {
       loadItems();
     }
   }, [currentFolderId, isSearchMode]);
 
-  // Load global data (Folders for picker, Tags) on mount
   useEffect(() => {
     loadAllFolders();
     loadTags();
   }, []);
 
-  // Reload folders when picker opens to be fresh
   useEffect(() => {
     if (isFolderPickerOpen) {
       loadAllFolders();
     }
   }, [isFolderPickerOpen]);
 
-  // Focus search input when mode activates
   useEffect(() => {
     if (isSearchMode) {
       setTimeout(() => {
@@ -84,8 +65,6 @@ function App() {
     try {
       const data = await api.getItems(currentFolderId);
       setItems(data);
-
-      // Update title map if we found folders
       const newTitles: Record<string, string> = {};
       data.forEach(item => {
         if (item.type === ItemType.FOLDER && item.title) {
@@ -93,7 +72,6 @@ function App() {
         }
       });
       setFolderTitleMap(prev => ({ ...prev, ...newTitles }));
-
     } catch (error) {
       console.error("Failed to load items", error);
     } finally {
@@ -105,7 +83,6 @@ function App() {
     try {
       const folders = await api.getAllFolders();
       setAllFolders(folders);
-      // Also update title map from this list
       const newTitles: Record<string, string> = {};
       folders.forEach(f => {
         if (f.title) newTitles[f.id] = f.title;
@@ -127,16 +104,12 @@ function App() {
     }
   };
 
-  // Includes both Images and Videos
   const visibleMedia = useMemo(() => {
     return items.filter(item => item.type === ItemType.IMAGE || item.type === ItemType.VIDEO);
   }, [items]);
 
-  // Filtered tags for search autocomplete
   const filteredTags = useMemo(() => {
     if (!searchQuery) return [];
-    // Strip leading hash to allow searching like "#nature" or just "nature"
-    // Also allows showing all tags if user just types "#"
     const query = (searchQuery as string).toLowerCase().replace(/^#/, '');
     const tagList = Object.entries(tagsMap).map(([id, name]) => ({ id, name: name as string }));
     return tagList.filter(t => t.name.toLowerCase().includes(query));
@@ -149,10 +122,8 @@ function App() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
     setLoading(true);
     try {
-      // Upload sequentially for simplicity
       for (let i = 0; i < files.length; i++) {
         await api.uploadFile(files[i], currentFolderId);
       }
@@ -179,11 +150,8 @@ function App() {
     }
   };
 
-  // Click on a grid item
   const handleItemClick = (item: GalleryItem) => {
     if (item.type === ItemType.FOLDER) {
-      // If we are in search results, clicking a folder probably should navigate to it.
-      // We push to stack and disable search mode implicitly because of dependency logic in useEffect.
       if (isSearchMode) {
         setIsSearchMode(false);
         setSearchQuery("");
@@ -198,7 +166,6 @@ function App() {
   };
 
   const handleBack = () => {
-    // Pop the last folder ID from history stack
     setFolderPath(prev => prev.slice(0, -1));
   };
 
@@ -209,13 +176,10 @@ function App() {
 
   const handleFolderSelect = async (targetFolderId: string | undefined) => {
     if (!imageToMoveId) return;
-
     try {
       await api.moveItem(imageToMoveId, targetFolderId);
       setIsFolderPickerOpen(false);
       await loadItems();
-
-      // Adjust viewer index if needed
       if (viewingImageIndex !== null) {
         setViewingImageIndex(prev => {
            if (prev === null) return null;
@@ -231,13 +195,12 @@ function App() {
     setItems(prevItems => prevItems.map(item => 
         item.id === updatedItem.id ? updatedItem : item
     ));
-    // Also refresh tags in case new ones were created
     loadTags();
   };
 
   const handleItemDelete = (deletedItemId: string) => {
-    setViewingImageIndex(null); // Close viewer
-    loadItems(); // Refresh content
+    setViewingImageIndex(null); 
+    loadItems(); 
   };
 
   const handleDeleteFolder = async (saveContent: boolean) => {
@@ -246,9 +209,7 @@ function App() {
     try {
       await api.deleteItem(currentFolderId, saveContent);
       setIsFolderDeleteModalOpen(false);
-      handleBack(); // Go up one level
-      // Note: loadItems is triggered by effect on folderPath change
-      // However, we should also reload AllFolders to update the picker/title map if needed
+      handleBack(); 
       loadAllFolders(); 
     } catch (error) {
       console.error("Delete folder failed", error);
@@ -274,7 +235,6 @@ function App() {
   const handleExitSearch = () => {
     setIsSearchMode(false);
     setSearchQuery("");
-    // Reload items for the current folder to restore view
     loadItems();
   };
 
@@ -283,9 +243,7 @@ function App() {
     searchInputRef.current?.focus();
   };
 
-  // Sort: Folders first, then Media (Images/Videos)
   const sortedItems = [...items].sort((a, b) => {
-    // Folders always come first
     if (a.type === ItemType.FOLDER && b.type !== ItemType.FOLDER) return -1;
     if (a.type !== ItemType.FOLDER && b.type === ItemType.FOLDER) return 1;
     return 0;
@@ -296,8 +254,7 @@ function App() {
     : STRINGS.HEADER.DEFAULT_TITLE;
 
   return (
-    <div className="min-h-screen bg-tg-bg font-sans text-tg-text">
-      {/* Hidden File Input */}
+    <div className="min-h-screen bg-tg-bg font-sans text-tg-text transition-colors duration-200">
       <input
         type="file"
         ref={fileInputRef}
@@ -307,12 +264,10 @@ function App() {
         multiple
       />
 
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 bg-tg-header/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 bg-tg-header backdrop-blur-md shadow-sm transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between relative">
           
           {isSearchMode ? (
-            /* Search Mode Header */
             <div className="flex w-full items-center gap-2 animate-fadeIn">
                <button 
                  onClick={handleExitSearch}
@@ -327,7 +282,7 @@ function App() {
                  onChange={(e) => setSearchQuery(e.target.value)}
                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                  placeholder={STRINGS.SEARCH.PLACEHOLDER}
-                 className="flex-1 bg-gray-100 border-none rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-tg-link/50 text-sm"
+                 className="flex-1 bg-tg-bg text-tg-text rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-tg-link/50 text-sm placeholder-tg-hint border border-transparent"
                />
                <button 
                  onClick={handleSearch}
@@ -336,24 +291,22 @@ function App() {
                  <SearchIcon className="w-6 h-6" />
                </button>
 
-               {/* Tags Autocomplete Dropdown */}
                {searchQuery && filteredTags.length > 0 && (
-                 <div className="absolute top-12 left-0 right-0 bg-white shadow-xl border-t border-gray-100 max-h-60 overflow-y-auto z-50">
+                 <div className="absolute top-12 left-0 right-0 bg-tg-secondary-bg shadow-xl border-t border-tg-separator max-h-60 overflow-y-auto z-50">
                     {filteredTags.map(tag => (
                       <div 
                         key={tag.id}
                         onClick={() => handleTagClick(tag.name)}
-                        className="px-4 py-3 border-b border-gray-100 hover:bg-gray-50 active:bg-blue-50 cursor-pointer text-sm flex items-center gap-2"
+                        className="px-4 py-3 border-b border-tg-separator hover:bg-tg-bg cursor-pointer text-sm flex items-center gap-2"
                       >
-                         <span className="text-gray-400">#</span>
-                         {tag.name}
+                         <span className="text-tg-hint">#</span>
+                         <span className="text-tg-text">{tag.name}</span>
                       </div>
                     ))}
                  </div>
                )}
             </div>
           ) : (
-            /* Normal Header */
             <>
               <div className="flex items-center gap-2 overflow-hidden flex-1">
                 {currentFolderId && (
@@ -365,7 +318,7 @@ function App() {
                     <span className="text-base">{STRINGS.HEADER.BACK}</span>
                   </button>
                 )}
-                <h1 className="text-lg font-semibold tracking-tight truncate">
+                <h1 className="text-lg font-semibold tracking-tight truncate text-tg-text">
                   {currentTitle}
                 </h1>
               </div>
@@ -375,34 +328,23 @@ function App() {
                   <button
                     onClick={() => setIsFolderDeleteModalOpen(true)}
                     disabled={loading}
-                    className="text-red-500 hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-                    aria-label="Delete Folder"
+                    className="text-tg-destructive hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
                   >
-                    <TrashIcon className="w-6 h-6 text-red-500" />
+                    <TrashIcon className="w-6 h-6" />
                   </button>
                 )}
                 
                 <button
                   onClick={() => setIsSearchMode(true)}
                   className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
-                  aria-label="Search"
                 >
                   <SearchIcon className="w-6 h-6" />
                 </button>
-                
-                <button
-                  onClick={handleUploadClick}
-                  disabled={loading}
-                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-                  aria-label="Upload Images"
-                >
-                  <PhotoIcon className="w-6 h-6" />
-                </button>
+
                 <button
                   onClick={() => setIsModalOpen(true)}
                   disabled={loading}
                   className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
-                  aria-label="Create Folder"
                 >
                   <PlusIcon className="w-7 h-7" />
                 </button>
@@ -412,11 +354,10 @@ function App() {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-7xl mx-auto min-h-[calc(100vh-48px)]">
         {loading && items.length === 0 ? (
           <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-4 border-tg-link/30 border-t-tg-link rounded-full animate-spin"></div>
           </div>
         ) : sortedItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-tg-hint">
@@ -427,13 +368,12 @@ function App() {
         )}
       </main>
 
-      {/* Floating Action Button (Mobile) - Conditioned by ENV */}
       {showUploadButton && (
         <div className="fixed bottom-6 right-6 z-30 md:hidden">
           <button
             onClick={handleUploadClick}
             disabled={loading}
-            className="bg-tg-button text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-70"
+            className="bg-tg-button text-tg-button-text w-14 h-14 rounded-full shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-70"
           >
             <PhotoIcon className="w-6 h-6" />
           </button>
@@ -446,7 +386,6 @@ function App() {
         onSubmit={handleCreateFolder} 
       />
 
-      {/* Folder Deletion Modal */}
       <DeleteFolderModal
         isOpen={isFolderDeleteModalOpen}
         onClose={() => setIsFolderDeleteModalOpen(false)}
@@ -455,11 +394,10 @@ function App() {
         isLoading={isDeletingFolder}
       />
 
-      {/* Image Viewer */}
       {viewingImageIndex !== null && visibleMedia.length > 0 && (
         <ImageViewer
           images={visibleMedia}
-          initialIndex={Math.min(viewingImageIndex, visibleMedia.length - 1)} // Safety clamp
+          initialIndex={Math.min(viewingImageIndex, visibleMedia.length - 1)}
           onClose={() => setViewingImageIndex(null)}
           onMoveToFolder={handleMoveToFolderRequest}
           tagsMap={tagsMap}
@@ -468,7 +406,6 @@ function App() {
         />
       )}
 
-      {/* Folder Picker */}
       <FolderPicker
         isOpen={isFolderPickerOpen}
         folders={allFolders}

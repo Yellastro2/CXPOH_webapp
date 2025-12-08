@@ -99,7 +99,7 @@ export const mockApi: GalleryApi = {
 
   async updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem> {
     await delay(300);
-
+    
     // Process tags (convert names to IDs, creating new tags if necessary)
     let newTagIds: string[] | undefined = undefined;
     if (updates.tags) {
@@ -130,7 +130,7 @@ export const mockApi: GalleryApi = {
   async searchFiles(query: string): Promise<GalleryItem[]> {
     await delay(400);
     const lowerQuery = query.toLowerCase().replace('#', '');
-
+    
     return mockDb.filter(item => {
         // Search in title
         if (item.title && item.title.toLowerCase().includes(lowerQuery)) return true;

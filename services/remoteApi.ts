@@ -36,14 +36,14 @@ interface BackendItem {
 const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
   const isFolder = item.type === 'FOLDER';
   const isVideo = item.fileType === 'VIDEO';
-
+  
   let previewUrl = undefined;
   let fullUrl = undefined;
 
   if (!isFolder && item.storageId) {
     const initData = getInitData();
     const baseUrl = `${API_BASE}/api/telegram/image`;
-
+    
     // Construct params for Preview
     const previewParams = new URLSearchParams({
       storageId: item.storageId,
@@ -81,7 +81,7 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
     title: item.name,
     url: previewUrl, // Default URL is used for grid preview (for video it's the thumbnail)
     fullUrl: fullUrl, // Full URL is used for full screen viewer (for video it's the thumbnail for now)
-    createdAt: 0,
+    createdAt: 0, 
     parentId: undefined,
     storageId: item.storageId || undefined, // Map storageId for operations
     sizeBytes: item.sizeBytes, // Map sizeBytes
@@ -95,7 +95,7 @@ export const remoteApi: GalleryApi = {
     const userId = getUserId();
     const initData = getInitData();
     const url = new URL(`${API_BASE}/api/folders/content`, window.location.origin);
-
+    
     url.searchParams.append('userId', userId);
     if (parentId) {
       url.searchParams.append('parentId', parentId);
@@ -226,7 +226,7 @@ export const remoteApi: GalleryApi = {
 
   async uploadFile(file: File, parentId?: string): Promise<GalleryItem> {
     console.warn('[RemoteAPI] Direct file upload from browser is not supported by the current API spec.');
-
+    
     // Stub for UI responsiveness
     return {
       id: 'temp_' + Date.now(),
