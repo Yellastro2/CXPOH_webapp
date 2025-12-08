@@ -292,12 +292,12 @@ function App() {
                </button>
 
                {searchQuery && filteredTags.length > 0 && (
-                 <div className="absolute top-12 left-0 right-0 bg-tg-secondary-bg shadow-xl border-t border-tg-separator max-h-60 overflow-y-auto z-50">
+                 <div className="absolute top-11 left-0 right-0 bg-tg-secondary-bg shadow-xl max-h-60 overflow-y-auto z-50">
                     {filteredTags.map(tag => (
                       <div 
                         key={tag.id}
                         onClick={() => handleTagClick(tag.name)}
-                        className="px-4 py-3 border-b border-tg-separator hover:bg-tg-bg cursor-pointer text-sm flex items-center gap-2"
+                        className="px-4 py-3 hover:bg-tg-bg cursor-pointer text-sm flex items-center gap-2"
                       >
                          <span className="text-tg-hint">#</span>
                          <span className="text-tg-text">{tag.name}</span>

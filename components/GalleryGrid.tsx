@@ -18,7 +18,7 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({ items, onItemClick }) 
           className={`
             relative group overflow-hidden rounded-xl aspect-square shadow-sm transition-transform active:scale-95 duration-200 cursor-pointer
             ${item.type === ItemType.FOLDER 
-              ? 'bg-tg-secondary-bg flex flex-col items-center justify-center p-4 border border-tg-separator/10' 
+              ? 'bg-tg-secondary-bg flex flex-col items-center justify-center p-4'
               : 'bg-tg-secondary-bg'}
           `}
         >

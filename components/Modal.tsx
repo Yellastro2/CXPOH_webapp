@@ -33,9 +33,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, onSubmit }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-tg-secondary-bg rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
-        <div className="flex justify-between items-center p-4 border-b border-tg-separator">
+        <div className="flex justify-between items-center p-4 ">
           <h3 className="text-lg font-semibold text-tg-text">{STRINGS.MODAL_CREATE_FOLDER.TITLE}</h3>
           <button onClick={onClose} className="text-tg-hint hover:text-tg-text">
             <CloseIcon className="w-6 h-6 text-tg-link" />
