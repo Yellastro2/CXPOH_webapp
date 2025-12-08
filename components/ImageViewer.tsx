@@ -231,6 +231,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   // --- Actions ---
 
   const handleDownload = async () => {
+    if (currentItem.sizeBytes && currentItem.sizeBytes > MAX_VIDEO_SIZE) {
+        setIsSizeAlertOpen(true);
+        return;
+    }
+
     const url = currentItem.fullUrl || currentItem.url;
     if (!url) return;
     

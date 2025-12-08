@@ -239,7 +239,7 @@ function App() {
   };
 
   const handleTagClick = (tagName: string) => {
-    setSearchQuery(`#${tagName}`);
+    setSearchQuery(`#${tagName} `);
     searchInputRef.current?.focus();
   };
 
