@@ -271,7 +271,7 @@ function App() {
             <div className="flex w-full items-center gap-2 animate-fadeIn">
                <button 
                  onClick={handleExitSearch}
-                 className="text-tg-link hover:opacity-70 p-1"
+                 className="text-tg-accent hover:opacity-70 p-1"
                >
                  <ChevronLeftIcon className="w-6 h-6" />
                </button>
@@ -286,7 +286,7 @@ function App() {
                />
                <button 
                  onClick={handleSearch}
-                 className="text-tg-link hover:opacity-70 p-1"
+                 className="text-tg-accent hover:opacity-70 p-1"
                >
                  <SearchIcon className="w-6 h-6" />
                </button>
@@ -312,13 +312,13 @@ function App() {
                 {currentFolderId && (
                   <button
                     onClick={handleBack}
-                    className="text-tg-link hover:opacity-70 flex items-center -ml-2 pr-2"
+                    className="text-tg-accent hover:opacity-70 flex items-center -ml-2 pr-2"
                   >
                     <ChevronLeftIcon className="w-6 h-6" />
                     <span className="text-base">{STRINGS.HEADER.BACK}</span>
                   </button>
                 )}
-                <h1 className="text-lg font-semibold tracking-tight truncate text-tg-text">
+                <h1 className="text-lg font-semibold tracking-tight truncate">
                   {currentTitle}
                 </h1>
               </div>
@@ -336,7 +336,7 @@ function App() {
                 
                 <button
                   onClick={() => setIsSearchMode(true)}
-                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2"
+                  className="text-tg-accent hover:opacity-70 active:opacity-50 transition-opacity p-2"
                 >
                   <SearchIcon className="w-6 h-6" />
                 </button>
@@ -344,7 +344,7 @@ function App() {
                 <button
                   onClick={() => setIsModalOpen(true)}
                   disabled={loading}
-                  className="text-tg-link hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                  className="text-tg-accent hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
                 >
                   <PlusIcon className="w-7 h-7" />
                 </button>

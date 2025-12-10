@@ -61,6 +61,10 @@ export interface TelegramWebApp {
     section_header_text_color?: string;
     subtitle_text_color?: string;
     destructive_text_color?: string;
+
+    // ДОБАВЛЯЕШЬ ЭТО:
+    bottom_bar_bg_color?: string;
+    accent_text_color?: string;
   };
   isExpanded: boolean;
   viewportHeight: number;

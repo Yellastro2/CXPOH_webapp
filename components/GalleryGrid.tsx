@@ -24,8 +24,8 @@ export const GalleryGrid: React.FC<GalleryGridProps> = ({ items, onItemClick }) 
         >
           {item.type === ItemType.FOLDER ? (
             <>
-              <div className="text-tg-link mb-2">
-                <FolderIcon className="w-16 h-16 drop-shadow-sm" />
+              <div className="text-tg-accent mb-2">
+                <FolderIcon className="w-16 h-16 drop-shadow-sm " />
               </div>
               <span className="text-center text-sm font-medium text-tg-text line-clamp-2 px-1 break-words w-full">
                 {item.title}

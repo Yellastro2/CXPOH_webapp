@@ -44,7 +44,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
         <div className="flex justify-between items-center p-4 shrink-0">
           <h3 className="text-lg font-semibold text-tg-text">{STRINGS.FOLDER_PICKER.TITLE}</h3>
           <button onClick={onClose} className="text-tg-hint hover:text-tg-text p-1">
-            <CloseIcon className="w-6 h-6 text-tg-link" />
+            <CloseIcon className="w-6 h-6 text-tg-accent" />
           </button>
         </div>
 
@@ -66,7 +66,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
                 className="flex items-center w-full p-2 rounded-xl hover:bg-tg-bg active:opacity-70 transition-colors gap-3 my-0.5"
                 style={{ paddingLeft: `${8 + depth * 24}px` }}
               >
-                <div className="shrink-0 text-tg-link">
+                <div className="shrink-0 text-tg-accent">
                    <FolderIcon className="w-8 h-8" />
                 </div>
                 <span className="text-sm font-medium text-tg-text truncate">
