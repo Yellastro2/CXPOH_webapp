@@ -3,6 +3,8 @@ export const STRINGS = {
   APP_NAME: "СКлауд",
   HEADER: {
     BACK: "Назад",
+    CANCEL: "Отмена",
+    SELECTED: "Выбрано",
     DEFAULT_TITLE: "Галерея",
     FOLDER_TITLE_DEFAULT: "Папка"
   },

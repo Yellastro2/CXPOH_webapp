@@ -5,8 +5,11 @@ import { Modal } from './components/Modal';
 import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
 import { DeleteFolderModal } from './components/DeleteFolderModal';
-import { PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon } from './components/Icons';
-import { api } from './services/api'; 
+import {
+  PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon,
+  DownloadIcon, MoveToFolderIcon, ShareIcon
+} from './components/Icons';
+import { api } from './services/api';
 import { GalleryItem, ItemType } from './types';
 import { STRINGS } from './resources';
 
@@ -26,9 +29,14 @@ function App() {
   const [isFolderDeleteModalOpen, setIsFolderDeleteModalOpen] = useState(false);
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
 
+  // Search State
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Selection Mode State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const isSelectionMode = selectedIds.size > 0;
 
   const [imageToMoveId, setImageToMoveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +47,11 @@ function App() {
     if (!isSearchMode) {
       loadItems();
     }
+  }, [currentFolderId, isSearchMode]);
+
+  useEffect(() => {
+    // Clear selection when changing folder or exiting search
+    setSelectedIds(new Set());
   }, [currentFolderId, isSearchMode]);
 
   useEffect(() => {
@@ -192,15 +205,15 @@ function App() {
   };
 
   const handleItemUpdate = (updatedItem: GalleryItem) => {
-    setItems(prevItems => prevItems.map(item => 
+    setItems(prevItems => prevItems.map(item =>
         item.id === updatedItem.id ? updatedItem : item
     ));
     loadTags();
   };
 
   const handleItemDelete = (deletedItemId: string) => {
-    setViewingImageIndex(null); 
-    loadItems(); 
+    setViewingImageIndex(null);
+    loadItems();
   };
 
   const handleDeleteFolder = async (saveContent: boolean) => {
@@ -209,8 +222,8 @@ function App() {
     try {
       await api.deleteItem(currentFolderId, saveContent);
       setIsFolderDeleteModalOpen(false);
-      handleBack(); 
-      loadAllFolders(); 
+      handleBack();
+      loadAllFolders();
     } catch (error) {
       console.error("Delete folder failed", error);
       alert(STRINGS.ERRORS.DELETE_FOLDER);
@@ -243,6 +256,25 @@ function App() {
     searchInputRef.current?.focus();
   };
 
+  // Selection Mode Handlers
+  const handleToggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleCancelSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleActionStub = () => {
+    handleCancelSelection();
+  };
+
   const sortedItems = [...items].sort((a, b) => {
     if (a.type === ItemType.FOLDER && b.type !== ItemType.FOLDER) return -1;
     if (a.type !== ItemType.FOLDER && b.type === ItemType.FOLDER) return 1;
@@ -266,10 +298,43 @@ function App() {
 
       <header className="sticky top-0 z-40 bg-tg-header backdrop-blur-md shadow-sm transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between relative">
-          
-          {isSearchMode ? (
+
+          {isSelectionMode ? (
+            /* SELECTION MODE HEADER */
+            <div className="flex w-full items-center justify-between animate-fadeIn">
+               <div className="flex items-center gap-2">
+                 <button
+                   onClick={handleCancelSelection}
+                   className="text-tg-accent hover:opacity-70 flex items-center -ml-2 pr-2"
+                 >
+                    <ChevronLeftIcon className="w-6 h-6" />
+                    <span className="text-base">{STRINGS.HEADER.CANCEL}</span>
+                 </button>
+               </div>
+
+               <div className="font-semibold text-lg">
+                  {STRINGS.HEADER.SELECTED}: {selectedIds.size}
+               </div>
+
+               <div className="flex items-center gap-1">
+                 <button onClick={handleActionStub} className="text-tg-destructive p-2 hover:opacity-70">
+                    <TrashIcon className="w-6 h-6" />
+                 </button>
+                 <button onClick={handleActionStub} className="text-tg-accent p-2 hover:opacity-70">
+                    <MoveToFolderIcon className="w-6 h-6" />
+                 </button>
+                 <button onClick={handleActionStub} className="text-tg-accent p-2 hover:opacity-70">
+                    <DownloadIcon className="w-6 h-6" />
+                 </button>
+                 <button onClick={handleActionStub} className="text-tg-accent p-2 hover:opacity-70">
+                    <ShareIcon className="w-6 h-6" />
+                 </button>
+               </div>
+            </div>
+          ) : isSearchMode ? (
+            /* SEARCH MODE HEADER */
             <div className="flex w-full items-center gap-2 animate-fadeIn">
-               <button 
+               <button
                  onClick={handleExitSearch}
                  className="text-tg-accent hover:opacity-70 p-1"
                >
@@ -284,7 +349,7 @@ function App() {
                  placeholder={STRINGS.SEARCH.PLACEHOLDER}
                  className="flex-1 bg-tg-bg text-tg-text rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-tg-link/50 text-sm placeholder-tg-hint border border-transparent"
                />
-               <button 
+               <button
                  onClick={handleSearch}
                  className="text-tg-accent hover:opacity-70 p-1"
                >
@@ -294,7 +359,7 @@ function App() {
                {searchQuery && filteredTags.length > 0 && (
                  <div className="absolute top-11 left-0 right-0 bg-tg-secondary-bg shadow-xl max-h-60 overflow-y-auto z-50">
                     {filteredTags.map(tag => (
-                      <div 
+                      <div
                         key={tag.id}
                         onClick={() => handleTagClick(tag.name)}
                         className="px-4 py-3 hover:bg-tg-bg cursor-pointer text-sm flex items-center gap-2"
@@ -307,6 +372,7 @@ function App() {
                )}
             </div>
           ) : (
+            /* NORMAL HEADER */
             <>
               <div className="flex items-center gap-2 overflow-hidden flex-1">
                 {currentFolderId && (
@@ -333,7 +399,7 @@ function App() {
                     <TrashIcon className="w-6 h-6" />
                   </button>
                 )}
-                
+
                 <button
                   onClick={() => setIsSearchMode(true)}
                   className="text-tg-accent hover:opacity-70 active:opacity-50 transition-opacity p-2"
@@ -364,11 +430,17 @@ function App() {
             <p>{STRINGS.EMPTY_STATE.FOLDER}</p>
           </div>
         ) : (
-          <GalleryGrid items={sortedItems} onItemClick={handleItemClick} />
+          <GalleryGrid
+            items={sortedItems}
+            onItemClick={handleItemClick}
+            isSelectionMode={isSelectionMode}
+            selectedIds={selectedIds}
+            onToggleSelection={handleToggleSelection}
+          />
         )}
       </main>
 
-      {showUploadButton && (
+      {showUploadButton && !isSelectionMode && (
         <div className="fixed bottom-6 right-6 z-30 md:hidden">
           <button
             onClick={handleUploadClick}
