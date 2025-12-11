@@ -57,21 +57,28 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editComment, setEditComment] = useState("");
   const [editTags, setEditTags] = useState("");
+  // Track which field triggered the edit mode to set focus correctly
+  const [editStartField, setEditStartField] = useState<'tags' | 'comment'>('tags');
+
+  // Tag Autocomplete State
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   // Video State
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isVideoActive, setIsVideoActive] = useState(false); 
+  const [isVideoActive, setIsVideoActive] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const currentItem = images[currentIndex];
   const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
-  
+
   // Resolve tags for display
   const currentTagsNames = currentItem.tags
     ? currentItem.tags.map(id => tagsMap[id] || id)
@@ -89,6 +96,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setIsExtraMode(false);
     setIsEditing(false);
     setIsSharing(false);
+    setShowTagSuggestions(false);
   }, [currentIndex]);
 
   // Sync video element with React state
@@ -123,7 +131,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (isExtraMode) return;
-    
+
     if (e.touches.length === 2) {
       const dist = getDistance(e.touches);
       setStartPinchDist(dist);
@@ -140,7 +148,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (isExtraMode) return;
-    
+
     if (e.touches.length === 2 && startPinchDist) {
       // Pinch Zoom
       const dist = getDistance(e.touches);
@@ -149,7 +157,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     } else if (e.touches.length === 1 && isDragging) {
       const x = e.touches[0].clientX;
       const y = e.touches[0].clientY;
-      
+
       if (scale > 1) {
         // Pan (Zoomed)
         const dx = x - startPan.x;
@@ -197,11 +205,11 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const handleTransitionEnd = (e: React.TransitionEvent) => {
     // Prevent bubbling events (e.g. from children) from triggering this logic
     if (e.target !== e.currentTarget) return;
-    
+
     if (!pendingDirection) return;
 
     // 1. Disable transition momentarily
-    setIsResetting(true); 
+    setIsResetting(true);
 
     // 2. Change Index (Content Swap)
     if (pendingDirection === 'next') {
@@ -238,7 +246,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
     const url = currentItem.fullUrl || currentItem.url;
     if (!url) return;
-    
+
     try {
       const response = await fetch(url);
       const blob = await response.blob();
@@ -288,11 +296,52 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (isExtraMode) {
       setIsExtraMode(false);
       setIsEditing(false);
+      setShowTagSuggestions(false);
     } else {
       setIsExtraMode(true);
       setEditComment(currentItem.comment || "");
       setEditTags(currentTagsNames.join(" "));
+      setEditStartField('tags'); // Default focus
     }
+  };
+
+  // --- Tag Autocomplete Logic ---
+  const handleTagInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setEditTags(val);
+
+    // Get the word currently being typed (after last space)
+    const parts = val.split(/[\s,]+/);
+    const lastWord = parts[parts.length - 1].replace(/^#/, '').toLowerCase();
+
+    if (lastWord.length > 0) {
+        const allTagNames = Object.values(tagsMap);
+        // Filter: match start or containment, exclude tags already present in other parts
+        const filtered = allTagNames.filter(t =>
+            t.toLowerCase().includes(lastWord) &&
+            !parts.slice(0, -1).some(p => p.toLowerCase() === t.toLowerCase())
+        );
+        setTagSuggestions(filtered);
+        setShowTagSuggestions(filtered.length > 0);
+    } else {
+        setShowTagSuggestions(false);
+    }
+  };
+
+  const handleSelectTag = (tag: string) => {
+      // Replace the last partial word with the selected tag
+      const parts = editTags.split(' ');
+      parts.pop(); // Remove partial
+      parts.push(tag);
+
+      const newValue = parts.join(' ') + ' ';
+      setEditTags(newValue);
+      setShowTagSuggestions(false);
+
+      // Refocus input
+      if (tagInputRef.current) {
+          tagInputRef.current.focus();
+      }
   };
 
   const handleSaveMetadata = async () => {
@@ -304,6 +353,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       });
       onItemUpdate(updated);
       setIsEditing(false);
+      setShowTagSuggestions(false);
     } catch (e) {
       console.error("Update failed", e);
       alert(STRINGS.IMAGE_VIEWER.ERROR_SAVE);
@@ -314,7 +364,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   const activateVideo = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    
+
     // Size check
     if (currentItem.sizeBytes && currentItem.sizeBytes > MAX_VIDEO_SIZE) {
         setIsSizeAlertOpen(true);
@@ -357,9 +407,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col no-scrollbar">
-      
+
       {/* Main Swipe Container */}
-      <div 
+      <div
         className="relative flex-1 overflow-hidden touch-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -367,6 +417,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         onClick={() => {
              if (isExtraMode && !isEditing) {
                  setIsExtraMode(false);
+                 setShowTagSuggestions(false);
                  return;
              }
              if (!isExtraMode) {
@@ -374,9 +425,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
              }
         }}
       >
-        <div 
+        <div
           className="flex h-full w-full"
-          style={{ 
+          style={{
             // 300% width container logic: [-100% (center) + offset]
             transform: `translateX(calc(-100% + ${diff}px))`,
             transition: (isDragging || isResetting) ? 'none' : 'transform 0.3s ease-out'
@@ -386,18 +437,18 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {/* Previous Slide */}
           <div className="min-w-full h-full flex items-center justify-center">
              {currentIndex > 0 && (
-                <img 
-                  src={images[currentIndex - 1].url} 
-                  className="max-w-full max-h-full object-contain opacity-50" 
+                <img
+                  src={images[currentIndex - 1].url}
+                  className="max-w-full max-h-full object-contain opacity-50"
                   alt="prev"
-                  draggable={false} 
+                  draggable={false}
                 />
              )}
           </div>
 
           {/* Current Slide */}
           <div className="min-w-full h-full flex items-center justify-center relative">
-            
+
             {isVideo && isVideoActive ? (
                 /* Video Player Active */
                 <div className="w-full h-full flex items-center justify-center bg-black relative">
@@ -411,16 +462,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                         onEnded={() => setIsPlaying(false)}
                         onClick={(e) => {
                              if (!isExtraMode) {
-                                e.stopPropagation(); 
+                                e.stopPropagation();
                                 setShowControls(prev => !prev);
                              }
                         }}
                     />
-                    
+
                     {/* Play/Pause Center Button */}
                     {showControls && !isExtraMode && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <button 
+                            <button
                                 onClick={togglePlay}
                                 className="bg-black/40 rounded-full p-4 backdrop-blur-sm pointer-events-auto hover:bg-black/60 transition-colors"
                             >
@@ -435,7 +486,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
                     {/* Bottom Controls Bar */}
                     {showControls && !isExtraMode && (
-                        <div 
+                        <div
                              className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pb-8 flex flex-col gap-2 pointer-events-auto"
                              onClick={(e) => e.stopPropagation()}
                         >
@@ -457,7 +508,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                                     <button onClick={() => setIsMuted(!isMuted)} className="text-white hover:text-blue-400">
                                         {isMuted || volume === 0 ? <SpeakerXMarkIcon className="w-5 h-5" /> : <SpeakerWaveIcon className="w-5 h-5" />}
                                     </button>
-                                    <input 
+                                    <input
                                         type="range"
                                         min="0" max="1" step="0.1"
                                         value={isMuted ? 0 : volume}
@@ -468,7 +519,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                                         className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
                                     />
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setIsLooping(!isLooping)}
                                     className={`p-1 rounded-md transition-colors ${isLooping ? 'text-blue-400 bg-white/10' : 'text-white/70 hover:text-white'}`}
                                 >
@@ -480,24 +531,24 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                 </div>
             ) : (
                 /* Static Image / Thumbnail */
-                <div 
+                <div
                     className="w-full h-full relative flex items-center justify-center"
-                    style={{ 
+                    style={{
                         transform: `scale(${scale}) translate(${pan.x}px, ${pan.y}px)`,
                         transition: isDragging ? 'none' : 'transform 0.2s'
                     }}
                     onDoubleClick={handleDoubleTap}
                 >
-                     <img 
-                        src={displayUrl} 
-                        className="max-w-full max-h-full object-contain" 
-                        alt="current" 
+                     <img
+                        src={displayUrl}
+                        className="max-w-full max-h-full object-contain"
+                        alt="current"
                         draggable={false}
                     />
-                    
+
                     {isVideo && !isExtraMode && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                            <button 
+                            <button
                                 onClick={activateVideo}
                                 className="bg-black/50 rounded-full p-4 backdrop-blur-sm active:scale-95 transition-transform"
                             >
@@ -512,10 +563,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {/* Next Slide */}
           <div className="min-w-full h-full flex items-center justify-center">
              {currentIndex < images.length - 1 && (
-                <img 
-                  src={images[currentIndex + 1].url} 
-                  className="max-w-full max-h-full object-contain opacity-50" 
-                  alt="next" 
+                <img
+                  src={images[currentIndex + 1].url}
+                  className="max-w-full max-h-full object-contain opacity-50"
+                  alt="next"
                   draggable={false}
                 />
              )}
@@ -531,13 +582,13 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       </div>
 
       {/* --- Action Buttons (Right Vertical Stack) --- */}
-      <div 
-        className={`absolute ${isExtraMode ? 'top-0 right-0 p-4' : 'top-1/2 right-0 -translate-y-1/2 p-4'} flex flex-col gap-6 z-50 transition-all duration-300 ${showControls || isExtraMode ? 'opacity-100' : 'opacity-0'}`}
+      <div
+        className={`absolute ${isExtraMode ? 'top-12 right-0 p-4' : 'top-1/2 right-0 -translate-y-1/2 p-4'} flex flex-col gap-6 z-50 transition-all duration-300 ${showControls || isExtraMode ? 'opacity-100' : 'opacity-0'}`}
       >
           {/* Metadata / Save */}
-          <button 
+          <button
             onClick={() => isEditing ? handleSaveMetadata() : toggleExtraMode()}
-            className={`text-white p-1 hover:opacity-70 drop-shadow-md ${isExtraMode ? 'text-blue-400' : ''}`}
+            className={`text-white p-0 hover:opacity-70 drop-shadow-md ${isExtraMode ? 'text-blue-400' : ''}`}
           >
              {isEditing ? <CheckIcon className="w-7 h-7" /> : <ExtraIcon className="w-7 h-7" />}
           </button>
@@ -545,10 +596,10 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
           {!isExtraMode && (
             <>
               {/* Share Button */}
-              <button 
-                onClick={handleShare} 
+              <button
+                onClick={handleShare}
                 disabled={isSharing}
-                className="text-white hover:opacity-70 drop-shadow-md p-1 disabled:opacity-50"
+                className="text-white hover:opacity-70 drop-shadow-md p-0 disabled:opacity-50"
               >
                 {isSharing ? (
                    <div className="w-7 h-7 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -557,13 +608,13 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                 )}
               </button>
 
-              <button onClick={handleDownload} className="text-white hover:opacity-70 drop-shadow-md p-1">
+              <button onClick={handleDownload} className="text-white hover:opacity-70 drop-shadow-md p-0">
                 <DownloadIcon className="w-7 h-7" />
               </button>
-              <button onClick={() => onMoveToFolder(currentItem.id)} className="text-white hover:opacity-70 drop-shadow-md p-1">
+              <button onClick={() => onMoveToFolder(currentItem.id)} className="text-white hover:opacity-70 drop-shadow-md p-0">
                 <MoveToFolderIcon className="w-7 h-7" />
               </button>
-              <button onClick={() => setIsConfirmDeleteOpen(true)} className="text-white hover:opacity-70 drop-shadow-md p-1">
+              <button onClick={() => setIsConfirmDeleteOpen(true)} className="text-white hover:opacity-70 drop-shadow-md p-0">
                 <TrashIcon className="w-7 h-7 text-red-400" />
               </button>
             </>
@@ -572,34 +623,70 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
       {/* --- Extra Overlay --- */}
       {isExtraMode && (
-          <div 
+          <div
              className="absolute inset-0 z-40 flex flex-col justify-end"
              onClick={() => !isEditing && setIsExtraMode(false)}
           >
-            <div 
+            <div
                 className="bg-gradient-to-t from-black/90 via-black/80 to-transparent pt-12 pb-10 px-6 text-white w-full"
-                onClick={(e) => e.stopPropagation()} 
+                onClick={(e) => e.stopPropagation()}
             >
                {isEditing ? (
-                  <div className="flex flex-col gap-4 animate-fadeIn">
-                      <input 
-                         type="text" 
-                         className="bg-transparent focus:outline-none border-none p-0 text-white placeholder-white/30 focus:ring-0 text-lg font-medium w-full"
-                         placeholder={STRINGS.IMAGE_VIEWER.PLACEHOLDER_TAGS}
-                         value={editTags}
-                         onChange={e => setEditTags(e.target.value)}
-                         autoFocus
-                      />
-                      <textarea 
+                  <div className="flex flex-col gap-4 animate-fadeIn pb-4">
+                      {/* Tag Input Container with Autocomplete */}
+                      <div className="relative">
+                          {showTagSuggestions && (
+                             <div className="absolute bottom-full left-0 mb-2 w-full max-h-40 overflow-y-auto bg-black/80 backdrop-blur-md rounded-xl border border-white/10 z-50 no-scrollbar shadow-2xl">
+                                {tagSuggestions.map((tag, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="px-4 py-3 text-white text-base border-b border-white/10 last:border-0 hover:bg-white/10 active:bg-white/20 cursor-pointer flex items-center gap-2"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault(); // Prevent input blur
+                                        handleSelectTag(tag);
+                                      }}
+                                    >
+                                       <span className="opacity-50 text-sm">#</span>
+                                       {tag}
+                                    </div>
+                                ))}
+                             </div>
+                          )}
+                          <input
+                             ref={tagInputRef}
+                             type="text"
+                             className="bg-transparent focus:outline-none border-none p-0 text-white placeholder-white/30 focus:ring-0 text-lg font-medium w-full"
+                             placeholder={STRINGS.IMAGE_VIEWER.PLACEHOLDER_TAGS}
+                             value={editTags}
+                             onChange={handleTagInput}
+                             autoFocus={editStartField === 'tags'}
+                             autoComplete="off"
+                          />
+                      </div>
+
+                      <textarea
                          className="bg-transparent focus:outline-none border-none p-0 text-white placeholder-white/30 text-base leading-relaxed resize-none w-full min-h-[100px]"
                          placeholder={STRINGS.IMAGE_VIEWER.PLACEHOLDER_COMMENT}
                          value={editComment}
                          onChange={e => setEditComment(e.target.value)}
+                         autoFocus={editStartField === 'comment'}
+                         onFocus={(e) => {
+                             // Move cursor to end of text
+                             const val = e.target.value;
+                             e.target.setSelectionRange(val.length, val.length);
+                         }}
                       />
                   </div>
                ) : (
-                  <div className="flex flex-col gap-3" onClick={() => setIsEditing(true)}>
-                     <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-3">
+                     <div
+                        className="flex flex-wrap gap-2 cursor-pointer active:opacity-70 transition-opacity"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setEditStartField('tags');
+                            setIsEditing(true);
+                        }}
+                     >
                         {currentTagsNames.length > 0 ? (
                            currentTagsNames.map((tag, idx) => (
                               <span key={idx} className="font-medium text-white text-lg">#{tag}</span>
@@ -608,9 +695,18 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                            <span className="text-gray-500 italic text-lg">{STRINGS.IMAGE_VIEWER.TAGS_EMPTY}</span>
                         )}
                      </div>
-                     <p className="text-base leading-relaxed text-gray-200 whitespace-pre-wrap">
-                        {currentItem.comment || <span className="text-gray-500 italic">{STRINGS.IMAGE_VIEWER.PLACEHOLDER_DESCRIPTION}</span>}
-                     </p>
+                     <div
+                        className="cursor-pointer active:opacity-70 transition-opacity min-h-[24px]"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setEditStartField('comment');
+                            setIsEditing(true);
+                        }}
+                     >
+                        <p className="text-base leading-relaxed text-gray-200 whitespace-pre-wrap">
+                            {currentItem.comment || <span className="text-gray-500 italic">{STRINGS.IMAGE_VIEWER.PLACEHOLDER_DESCRIPTION}</span>}
+                        </p>
+                     </div>
                   </div>
                )}
             </div>
