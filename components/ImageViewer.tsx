@@ -260,7 +260,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const handleShare = async () => {
     setIsSharing(true);
     try {
-        await api.sendToTelegram(currentItem);
+        await api.sendToTelegram([currentItem]); // Now pass array
         setSnackbar({ open: true, message: STRINGS.IMAGE_VIEWER.SNACKBAR_SENT, type: 'success' });
     } catch (e: any) {
         console.error("Share failed", e);
@@ -273,7 +273,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await api.deleteItem(currentItem.id);
+      await api.deleteItems([currentItem.id]); // Now pass array
       onItemDelete(currentItem.id);
       setIsConfirmDeleteOpen(false);
     } catch (e) {
@@ -524,9 +524,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       </div>
 
       {/* --- Close Button --- */}
-      <div className={`absolute top-0 left-0 p-4 z-50 transition-opacity duration-300 ${showControls || isExtraMode ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute top-0 right-0 p-4 z-50 transition-opacity duration-300 ${showControls || isExtraMode ? 'opacity-100' : 'opacity-0'}`}>
         <button onClick={onClose} className="text-white hover:opacity-70 drop-shadow-md">
-          <CloseIcon className="w-8 h-8" />
+          <CloseIcon className="w-7 h-7" />
         </button>
       </div>
 
@@ -584,14 +584,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                   <div className="flex flex-col gap-4 animate-fadeIn">
                       <input 
                          type="text" 
-                         className="bg-transparent border-none p-0 text-blue-300 placeholder-white/30 focus:ring-0 text-lg font-medium w-full"
+                         className="bg-transparent focus:outline-none border-none p-0 text-white placeholder-white/30 focus:ring-0 text-lg font-medium w-full"
                          placeholder={STRINGS.IMAGE_VIEWER.PLACEHOLDER_TAGS}
                          value={editTags}
                          onChange={e => setEditTags(e.target.value)}
                          autoFocus
                       />
                       <textarea 
-                         className="bg-transparent border-none p-0 text-white placeholder-white/30 focus:ring-0 text-base leading-relaxed resize-none w-full min-h-[100px]"
+                         className="bg-transparent focus:outline-none border-none p-0 text-white placeholder-white/30 text-base leading-relaxed resize-none w-full min-h-[100px]"
                          placeholder={STRINGS.IMAGE_VIEWER.PLACEHOLDER_COMMENT}
                          value={editComment}
                          onChange={e => setEditComment(e.target.value)}
@@ -602,7 +602,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                      <div className="flex flex-wrap gap-2">
                         {currentTagsNames.length > 0 ? (
                            currentTagsNames.map((tag, idx) => (
-                              <span key={idx} className="font-medium text-blue-300 text-lg">#{tag}</span>
+                              <span key={idx} className="font-medium text-white text-lg">#{tag}</span>
                            ))
                         ) : (
                            <span className="text-gray-500 italic text-lg">{STRINGS.IMAGE_VIEWER.TAGS_EMPTY}</span>

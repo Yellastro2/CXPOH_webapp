@@ -21,21 +21,39 @@ let mockTags: Tag[] = [
 ];
 
 // Initial state simulation (In-memory database)
-let mockDb: GalleryItem[] = Array.from({ length: 12 }, (_, i) => {
-  const url = getRandomImage();
-  const isVideo = i === 3 || i === 7; // Mock videos at specific indices
-  return {
-    id: generateId(),
-    type: isVideo ? ItemType.VIDEO : ItemType.IMAGE,
-    url: url, // Preview is always an image
-    fullUrl: isVideo ? MOCK_VIDEO_URL : url, // Full URL is video for video types
-    createdAt: Date.now(),
-    tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
-    comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined),
-    sizeBytes: isVideo ? 15 * 1024 * 1024 : 1024 * 500, // 15MB video, 500KB image
-    storageId: `storage_${i}`
-  };
-});
+let mockDb: GalleryItem[] = [
+  // Manual folders
+  {
+      id: 'folder1',
+      type: ItemType.FOLDER,
+      title: 'Vacation 2023',
+      createdAt: Date.now(),
+      parentId: undefined
+  },
+  {
+      id: 'folder2',
+      type: ItemType.FOLDER,
+      title: 'Work Stuff',
+      createdAt: Date.now(),
+      parentId: undefined
+  },
+  // Generated items
+  ...Array.from({ length: 12 }, (_, i) => {
+    const url = getRandomImage();
+    const isVideo = i === 3 || i === 7; // Mock videos at specific indices
+    return {
+      id: generateId(),
+      type: isVideo ? ItemType.VIDEO : ItemType.IMAGE,
+      url: url, // Preview is always an image
+      fullUrl: isVideo ? MOCK_VIDEO_URL : url, // Full URL is video for video types
+      createdAt: Date.now(),
+      tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
+      comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined),
+      sizeBytes: isVideo ? 15 * 1024 * 1024 : 1024 * 500, // 15MB video, 500KB image
+      storageId: `storage_${i}`
+    };
+  })
+];
 
 // Simulate network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -64,10 +82,11 @@ export const mockApi: GalleryApi = {
     return newFolder;
   },
 
-  async moveItem(itemId: string, targetParentId?: string): Promise<void> {
+  async moveItems(itemIds: string[], targetParentId?: string): Promise<void> {
     await delay(300);
+    const idSet = new Set(itemIds);
     mockDb = mockDb.map(item => {
-      if (item.id === itemId) {
+      if (idSet.has(item.id)) {
         return { ...item, parentId: targetParentId };
       }
       return item;
@@ -99,7 +118,7 @@ export const mockApi: GalleryApi = {
 
   async updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem> {
     await delay(300);
-    
+
     // Process tags (convert names to IDs, creating new tags if necessary)
     let newTagIds: string[] | undefined = undefined;
     if (updates.tags) {
@@ -130,7 +149,7 @@ export const mockApi: GalleryApi = {
   async searchFiles(query: string): Promise<GalleryItem[]> {
     await delay(400);
     const lowerQuery = query.toLowerCase().replace('#', '');
-    
+
     return mockDb.filter(item => {
         // Search in title
         if (item.title && item.title.toLowerCase().includes(lowerQuery)) return true;
@@ -148,12 +167,13 @@ export const mockApi: GalleryApi = {
     });
   },
 
-  async deleteItem(itemId: string, saveContent?: boolean): Promise<void> {
+  async deleteItems(itemIds: string[], saveContent?: boolean): Promise<void> {
     await delay(300);
-    mockDb = mockDb.filter(item => item.id !== itemId);
+    const idSet = new Set(itemIds);
+    mockDb = mockDb.filter(item => !idSet.has(item.id));
   },
 
-  async sendToTelegram(item: GalleryItem): Promise<void> {
+  async sendToTelegram(items: GalleryItem[]): Promise<void> {
     await delay(1000);
     if (Math.random() > 0.8) {
         throw new Error("Random mock error: Could not send to Telegram");

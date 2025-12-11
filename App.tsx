@@ -5,6 +5,8 @@ import { Modal } from './components/Modal';
 import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
 import { DeleteFolderModal } from './components/DeleteFolderModal';
+import { ConfirmModal } from './components/ConfirmModal';
+import { Snackbar } from './components/Snackbar';
 import {
   PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon,
   DownloadIcon, MoveToFolderIcon, ShareIcon
@@ -25,9 +27,20 @@ function App() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewingImageIndex, setViewingImageIndex] = useState<number | null>(null);
+
+  // Modals
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
   const [isFolderDeleteModalOpen, setIsFolderDeleteModalOpen] = useState(false);
+  const [isConfirmDeleteFilesOpen, setIsConfirmDeleteFilesOpen] = useState(false);
+
+  // Action Loading States
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
+  const [isDeletingFiles, setIsDeletingFiles] = useState(false);
+
+  // Snackbar State
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({
+    open: false, message: '', type: 'success'
+  });
 
   // Search State
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -38,7 +51,8 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const isSelectionMode = selectedIds.size > 0;
 
-  const [imageToMoveId, setImageToMoveId] = useState<string | null>(null);
+  // Track if we are moving a single image (from Viewer) or batch
+  const [singleImageToMoveId, setSingleImageToMoveId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showUploadButton = process.env.SHOW_UPLOAD_BUTTON === 'true';
@@ -183,21 +197,39 @@ function App() {
   };
 
   const handleMoveToFolderRequest = (imageId: string) => {
-    setImageToMoveId(imageId);
+    setSingleImageToMoveId(imageId);
     setIsFolderPickerOpen(true);
   };
 
   const handleFolderSelect = async (targetFolderId: string | undefined) => {
-    if (!imageToMoveId) return;
+    // Determine items to move
+    let idsToMove: string[] = [];
+    if (isSelectionMode) {
+      idsToMove = Array.from(selectedIds);
+    } else if (singleImageToMoveId) {
+      idsToMove = [singleImageToMoveId];
+    }
+
+    if (idsToMove.length === 0) return;
+
     try {
-      await api.moveItem(imageToMoveId, targetFolderId);
+      await api.moveItems(idsToMove, targetFolderId); // Batch API call
       setIsFolderPickerOpen(false);
+      setSingleImageToMoveId(null);
+
+      // If batch move, exit selection mode
+      if (isSelectionMode) {
+          setSelectedIds(new Set());
+      }
+
       await loadItems();
-      if (viewingImageIndex !== null) {
-        setViewingImageIndex(prev => {
-           if (prev === null) return null;
-           return prev > 0 ? prev - 1 : 0;
-        });
+
+      // If moving current viewing image, fix index
+      if (singleImageToMoveId && viewingImageIndex !== null) {
+         setViewingImageIndex(prev => {
+            if (prev === null) return null;
+            return prev > 0 ? prev - 1 : 0;
+         });
       }
     } catch (error) {
       console.error("Move failed", error);
@@ -216,19 +248,53 @@ function App() {
     loadItems();
   };
 
-  const handleDeleteFolder = async (saveContent: boolean) => {
-    if (!currentFolderId) return;
-    setIsDeletingFolder(true);
-    try {
-      await api.deleteItem(currentFolderId, saveContent);
-      setIsFolderDeleteModalOpen(false);
-      handleBack();
-      loadAllFolders();
-    } catch (error) {
-      console.error("Delete folder failed", error);
-      alert(STRINGS.ERRORS.DELETE_FOLDER);
-    } finally {
-      setIsDeletingFolder(false);
+  const handleDeleteConfirm = async (saveContent?: boolean) => {
+    // Determine context: Folder Delete vs Batch Selection Delete
+
+    // Case 1: Deleting current open folder (Header Trash Icon)
+    if (!isSelectionMode && currentFolderId) {
+       setIsDeletingFolder(true);
+       try {
+         await api.deleteItems([currentFolderId], saveContent); // Pass single ID as array
+         setIsFolderDeleteModalOpen(false);
+         handleBack();
+         loadAllFolders();
+       } catch (error) {
+         console.error("Delete folder failed", error);
+         alert(STRINGS.ERRORS.DELETE_FOLDER);
+       } finally {
+         setIsDeletingFolder(false);
+       }
+       return;
+    }
+
+    // Case 2: Batch Selection Delete
+    if (isSelectionMode && selectedIds.size > 0) {
+        const ids = Array.from(selectedIds);
+
+        // Determine if we are deleting folders (Modal type check happened before opening)
+        const hasFolders = ids.some(id => items.find(i => i.id === id)?.type === ItemType.FOLDER);
+
+        if (hasFolders) {
+            setIsDeletingFolder(true); // Re-use spinner state
+        } else {
+            setIsDeletingFiles(true);
+        }
+
+        try {
+            await api.deleteItems(ids, saveContent);
+            setIsFolderDeleteModalOpen(false);
+            setIsConfirmDeleteFilesOpen(false);
+            setSelectedIds(new Set()); // Clear selection
+            loadItems();
+            loadAllFolders(); // Update sidebar/tree if folders were deleted
+        } catch (error) {
+            console.error("Batch delete failed", error);
+            alert("Ошибка удаления");
+        } finally {
+            setIsDeletingFolder(false);
+            setIsDeletingFiles(false);
+        }
     }
   };
 
@@ -271,8 +337,36 @@ function App() {
     setSelectedIds(new Set());
   };
 
-  const handleActionStub = () => {
-    handleCancelSelection();
+  // -- Batch Actions --
+
+  const handleBatchDeleteClick = () => {
+    const ids = Array.from(selectedIds);
+    const hasFolder = ids.some(id => items.find(i => i.id === id)?.type === ItemType.FOLDER);
+
+    if (hasFolder) {
+        setIsFolderDeleteModalOpen(true);
+    } else {
+        setIsConfirmDeleteFilesOpen(true);
+    }
+  };
+
+  const handleBatchMoveClick = () => {
+    setIsFolderPickerOpen(true);
+  };
+
+  const handleBatchShareClick = async () => {
+     // Filter out folders, only share files
+     const fileItems = items.filter(i => selectedIds.has(i.id) && i.type !== ItemType.FOLDER);
+     if (fileItems.length === 0) return;
+
+     try {
+         await api.sendToTelegram(fileItems);
+         setSnackbar({ open: true, message: STRINGS.IMAGE_VIEWER.SNACKBAR_SENT, type: 'success' });
+         handleCancelSelection();
+     } catch (error) {
+         console.error("Batch share failed", error);
+         setSnackbar({ open: true, message: STRINGS.IMAGE_VIEWER.SNACKBAR_SEND_FAIL, type: 'error' });
+     }
   };
 
   const sortedItems = [...items].sort((a, b) => {
@@ -317,16 +411,13 @@ function App() {
                </div>
 
                <div className="flex items-center gap-1">
-                 <button onClick={handleActionStub} className="text-tg-destructive p-2 hover:opacity-70">
+                 <button onClick={handleBatchDeleteClick} className="text-tg-destructive p-2 hover:opacity-70">
                     <TrashIcon className="w-6 h-6" />
                  </button>
-                 <button onClick={handleActionStub} className="text-tg-accent p-2 hover:opacity-70">
+                 <button onClick={handleBatchMoveClick} className="text-tg-accent p-2 hover:opacity-70">
                     <MoveToFolderIcon className="w-6 h-6" />
                  </button>
-                 <button onClick={handleActionStub} className="text-tg-accent p-2 hover:opacity-70">
-                    <DownloadIcon className="w-6 h-6" />
-                 </button>
-                 <button onClick={handleActionStub} className="text-tg-accent p-2 hover:opacity-70">
+                 <button onClick={handleBatchShareClick} className="text-tg-accent p-2 hover:opacity-70">
                     <ShareIcon className="w-6 h-6" />
                  </button>
                </div>
@@ -452,18 +543,29 @@ function App() {
         </div>
       )}
 
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSubmit={handleCreateFolder} 
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleCreateFolder}
       />
 
+      {/* Delete Modal for Folders (Both Single and Batch with Folder) */}
       <DeleteFolderModal
         isOpen={isFolderDeleteModalOpen}
         onClose={() => setIsFolderDeleteModalOpen(false)}
-        onDeleteOnly={() => handleDeleteFolder(true)}
-        onDeleteAll={() => handleDeleteFolder(false)}
+        onDeleteOnly={() => handleDeleteConfirm(true)}
+        onDeleteAll={() => handleDeleteConfirm(false)}
         isLoading={isDeletingFolder}
+      />
+
+      {/* Delete Modal for Files Only (Batch) */}
+      <ConfirmModal
+        isOpen={isConfirmDeleteFilesOpen}
+        title={STRINGS.MODAL_CONFIRM_DELETE_FILE.TITLE}
+        message="Вы уверены что хотите удалить выбранные элементы?"
+        onConfirm={() => handleDeleteConfirm(false)}
+        onCancel={() => setIsConfirmDeleteFilesOpen(false)}
+        isLoading={isDeletingFiles}
       />
 
       {viewingImageIndex !== null && visibleMedia.length > 0 && (
@@ -483,6 +585,16 @@ function App() {
         folders={allFolders}
         onClose={() => setIsFolderPickerOpen(false)}
         onSelect={handleFolderSelect}
+        // Pass selectedIds if in selection mode to disable them in the picker
+        disabledFolderIds={isSelectionMode ? selectedIds : undefined}
+      />
+
+      {/* Snackbar Notification */}
+      <Snackbar
+        isOpen={snackbar.open}
+        message={snackbar.message}
+        type={snackbar.type}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
       />
     </div>
   );

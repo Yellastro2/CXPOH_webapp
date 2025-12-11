@@ -199,14 +199,14 @@ export const remoteApi: GalleryApi = {
     };
   },
 
-  async moveItem(itemId: string, targetParentId?: string): Promise<void> {
+  async moveItems(itemIds: string[], targetParentId?: string): Promise<void> {
     const userId = getUserId();
     const initData = getInitData();
     const url = `${API_BASE}/api/folders/move`;
 
     const body = {
       userId,
-      nodeId: itemId,
+      nodeIds: itemIds, // Send Array
       newParentId: targetParentId || null
     };
 
@@ -226,7 +226,7 @@ export const remoteApi: GalleryApi = {
 
   async uploadFile(file: File, parentId?: string): Promise<GalleryItem> {
     console.warn('[RemoteAPI] Direct file upload from browser is not supported by the current API spec.');
-    
+
     // Stub for UI responsiveness
     return {
       id: 'temp_' + Date.now(),
@@ -323,14 +323,14 @@ export const remoteApi: GalleryApi = {
     }
   },
 
-  async deleteItem(itemId: string, saveContent?: boolean): Promise<void> {
+  async deleteItems(itemIds: string[], saveContent?: boolean): Promise<void> {
     const userId = getUserId();
     const initData = getInitData();
     const url = `${API_BASE}/api/folders/delete`;
 
     const body = {
-      userId: parseInt(userId), // Ensure numeric type for backend
-      nodeId: itemId,
+      userId: parseInt(userId),
+      nodeIds: itemIds, // Send Array
       saveContent: saveContent
     };
 
@@ -348,19 +348,23 @@ export const remoteApi: GalleryApi = {
     }
   },
 
-  async sendToTelegram(item: GalleryItem): Promise<void> {
-    if (!item.storageId) {
-        throw new Error("Item has no storageId");
-    }
-
+  async sendToTelegram(items: GalleryItem[]): Promise<void> {
     const userId = getUserId();
     const initData = getInitData();
     const url = `${API_BASE}/api/telegram/send`;
 
+    // Extract storageIds and types
+    const filesPayload = items.map(item => {
+        if (!item.storageId) throw new Error(`Item ${item.id} has no storageId`);
+        return {
+            fileId: item.storageId,
+            type: item.type
+        };
+    });
+
     const body = {
         userId: parseInt(userId),
-        fileId: item.storageId,
-        type: item.type // IMAGE or VIDEO
+        items: filesPayload // Send Array of objects
     };
 
     const response = await fetch(url, {

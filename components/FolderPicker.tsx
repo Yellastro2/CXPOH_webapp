@@ -9,12 +9,19 @@ interface FolderPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (folderId: string | undefined) => void;
+  disabledFolderIds?: Set<string>;
 }
 
-export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onClose, onSelect }) => {
+export const FolderPicker: React.FC<FolderPickerProps> = ({
+  folders,
+  isOpen,
+  onClose,
+  onSelect,
+  disabledFolderIds
+}) => {
   const hierarchy = useMemo(() => {
     const map = new Map<string, GalleryItem[]>();
-    
+
     folders.forEach(item => {
       const pid = item.parentId || 'root';
       if (!map.has(pid)) map.set(pid, []);
@@ -22,7 +29,7 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
     });
 
     const result: { item: GalleryItem; depth: number }[] = [];
-    
+
     const traverse = (pid: string, depth: number) => {
       const children = map.get(pid) || [];
       children.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
@@ -59,21 +66,30 @@ export const FolderPicker: React.FC<FolderPickerProps> = ({ folders, isOpen, onC
                <span className="text-sm font-medium text-tg-text">{STRINGS.FOLDER_PICKER.ROOT_OPTION}</span>
             </button>
 
-            {hierarchy.map(({ item, depth }) => (
-              <button
-                key={item.id}
-                onClick={() => onSelect(item.id)}
-                className="flex items-center w-full p-2 rounded-xl hover:bg-tg-bg active:opacity-70 transition-colors gap-3 my-0.5"
-                style={{ paddingLeft: `${8 + depth * 24}px` }}
-              >
-                <div className="shrink-0 text-tg-accent">
-                   <FolderIcon className="w-8 h-8" />
-                </div>
-                <span className="text-sm font-medium text-tg-text truncate">
-                  {item.title}
-                </span>
-              </button>
-            ))}
+            {hierarchy.map(({ item, depth }) => {
+              const isDisabled = disabledFolderIds?.has(item.id);
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => !isDisabled && onSelect(item.id)}
+                  disabled={isDisabled}
+                  className={`flex items-center w-full p-2 rounded-xl transition-colors gap-3 my-0.5
+                    ${isDisabled
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-tg-bg active:opacity-70 cursor-pointer'
+                    }
+                  `}
+                  style={{ paddingLeft: `${8 + depth * 24}px` }}
+                >
+                  <div className="shrink-0 text-tg-accent">
+                     <FolderIcon className="w-8 h-8" />
+                  </div>
+                  <span className="text-sm font-medium text-tg-text truncate">
+                    {item.title}
+                  </span>
+                </button>
+              );
+            })}
 
             {folders.length === 0 && (
                <div className="text-center py-8 text-tg-hint text-sm">

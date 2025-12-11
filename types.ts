@@ -30,13 +30,13 @@ export interface GalleryApi {
   getItems(parentId?: string): Promise<GalleryItem[]>;
   getAllFolders(): Promise<GalleryItem[]>;
   createFolder(name: string, parentId?: string): Promise<GalleryItem>;
-  moveItem(itemId: string, targetParentId?: string): Promise<void>;
+  moveItems(itemIds: string[], targetParentId?: string): Promise<void>;
   uploadFile(file: File, parentId?: string): Promise<GalleryItem>;
   getAllTags(): Promise<Tag[]>;
   updateItem(itemId: string, updates: { comment?: string; tags?: string[] }): Promise<GalleryItem>;
   searchFiles(query: string): Promise<GalleryItem[]>;
-  deleteItem(itemId: string, saveContent?: boolean): Promise<void>;
-  sendToTelegram(item: GalleryItem): Promise<void>;
+  deleteItems(itemIds: string[], saveContent?: boolean): Promise<void>;
+  sendToTelegram(items: GalleryItem[]): Promise<void>;
 }
 
 // Minimal Telegram Web App Types
@@ -61,8 +61,6 @@ export interface TelegramWebApp {
     section_header_text_color?: string;
     subtitle_text_color?: string;
     destructive_text_color?: string;
-
-    // ДОБАВЛЯЕШЬ ЭТО:
     bottom_bar_bg_color?: string;
     accent_text_color?: string;
   };
