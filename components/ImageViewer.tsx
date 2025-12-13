@@ -40,6 +40,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [startPinchDist, setStartPinchDist] = useState<number | null>(null);
   const [startPan, setStartPan] = useState({ x: 0, y: 0 }); 
 
+  // Loading State for High Res Image
+  const [isHighResLoaded, setIsHighResLoaded] = useState(false);
+
   // UI state
   const [showControls, setShowControls] = useState(true);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
@@ -97,6 +100,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setIsEditing(false);
     setIsSharing(false);
     setShowTagSuggestions(false);
+    setIsHighResLoaded(false); // Reset loading state for new image
   }, [currentIndex]);
 
   // Sync video element with React state
@@ -403,7 +407,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const isVideo = currentItem.type === ItemType.VIDEO;
-  const displayUrl = isVideo ? (currentItem.url || '') : (currentItem.fullUrl || currentItem.url || '');
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col no-scrollbar">
@@ -530,7 +533,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     )}
                 </div>
             ) : (
-                /* Static Image / Thumbnail */
+                /* Static Image / Thumbnail (Multi-layer rendering) */
                 <div
                     className="w-full h-full relative flex items-center justify-center"
                     style={{
@@ -539,15 +542,31 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     }}
                     onDoubleClick={handleDoubleTap}
                 >
-                     <img
-                        src={displayUrl}
-                        className="max-w-full max-h-full object-contain"
-                        alt="current"
-                        draggable={false}
-                    />
+                     {/* Layer 1: Low Res Preview (Instant from previous slide cache) */}
+                     {currentItem.url && (
+                        <img
+                           src={currentItem.url}
+                           className="max-w-full max-h-full object-contain absolute z-0"
+                           alt="preview"
+                           draggable={false}
+                        />
+                     )}
+
+                     {/* Layer 2: High Res (Fades in) */}
+                     {/* Key is crucial here to force unmount of previous image texture */}
+                     {!isVideo && currentItem.fullUrl && (
+                        <img
+                            key={currentItem.id}
+                            src={currentItem.fullUrl}
+                            className={`max-w-full max-h-full object-contain absolute z-10 transition-opacity duration-300 ${isHighResLoaded ? 'opacity-100' : 'opacity-0'}`}
+                            alt="full"
+                            draggable={false}
+                            onLoad={() => setIsHighResLoaded(true)}
+                        />
+                     )}
 
                     {isVideo && !isExtraMode && (
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center justify-center z-20">
                             <button
                                 onClick={activateVideo}
                                 className="bg-black/50 rounded-full p-4 backdrop-blur-sm active:scale-95 transition-transform"
