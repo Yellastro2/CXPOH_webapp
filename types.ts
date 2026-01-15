@@ -37,6 +37,7 @@ export interface GalleryApi {
   searchFiles(query: string): Promise<GalleryItem[]>;
   deleteItems(itemIds: string[], saveContent?: boolean): Promise<void>;
   sendToTelegram(items: GalleryItem[]): Promise<void>;
+  shareItem(storageId: string, itemType: ItemType): Promise<string | null>;
 }
 
 // Minimal Telegram Web App Types
@@ -48,6 +49,10 @@ export interface TelegramWebApp {
   initData: string;
   initDataUnsafe: any;
   colorScheme: 'light' | 'dark';
+  version: string; // Added version check support
+  isVersionAtLeast: (version: string) => boolean; // Added version check support
+  downloadFile: (params: { url: string; file_name: string }, callback?: (accepted: boolean) => void) => void;
+  shareMessage: (msg_id: string, callback?: (success: boolean) => void) => void; // Added shareMessage
   themeParams: {
     bg_color?: string;
     text_color?: string;

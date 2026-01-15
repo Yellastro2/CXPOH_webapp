@@ -385,5 +385,47 @@ export const remoteApi: GalleryApi = {
         } catch(e) { /* ignore */ }
         throw new Error(errorMsg);
     }
+  },
+
+  async shareItem(storageId: string, itemType: ItemType): Promise<string | null> {
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = `${API_BASE}/api/telegram/share`;
+
+    const body = {
+        userId: parseInt(userId),
+        fileId: storageId,
+        type: itemType
+    };
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-Init-Data': initData
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+             let errorMsg = response.statusText;
+            try {
+                const errJson = await response.json();
+                if (errJson.error) errorMsg = errJson.error;
+            } catch(e) { /* ignore */ }
+            throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
+        if (data.success && data.preparedMessageId) {
+            return data.preparedMessageId;
+        } else {
+            throw new Error(data.error || 'Share failed: No message ID');
+        }
+    } catch (error) {
+        console.error('[RemoteAPI] shareItem failed', error);
+        throw error;
+    }
   }
 };

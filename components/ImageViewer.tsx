@@ -11,6 +11,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { AlertModal } from './AlertModal';
 import { Snackbar } from './Snackbar';
 import { STRINGS } from '../resources';
+import { useTelegram } from '../providers/TelegramProvider';
 
 interface ImageViewerProps {
   images: GalleryItem[];
@@ -22,13 +23,16 @@ interface ImageViewerProps {
   onItemDelete: (itemId: string) => void;
 }
 
-export const ImageViewer: React.FC<ImageViewerProps> = ({ 
-  images, initialIndex, onClose, onMoveToFolder, tagsMap, onItemUpdate, onItemDelete 
+export const ImageViewer: React.FC<ImageViewerProps> = ({
+  images, initialIndex, onClose, onMoveToFolder, tagsMap, onItemUpdate, onItemDelete
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  
+
+  // Telegram Context
+  const { webApp, inTelegram } = useTelegram();
+
   // Swipe & Animation State
-  const [diff, setDiff] = useState(0); 
+  const [diff, setDiff] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [isResetting, setIsResetting] = useState(false); // Disables transition for instant index swap
@@ -38,7 +42,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [startPinchDist, setStartPinchDist] = useState<number | null>(null);
-  const [startPan, setStartPan] = useState({ x: 0, y: 0 }); 
+  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
 
   // Loading State for High Res Image
   const [isHighResLoaded, setIsHighResLoaded] = useState(false);
@@ -48,6 +52,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSizeAlertOpen, setIsSizeAlertOpen] = useState(false);
+
+  // Downloading State
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Sharing State
   const [isSharing, setIsSharing] = useState(false);
@@ -99,6 +106,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     setIsExtraMode(false);
     setIsEditing(false);
     setIsSharing(false);
+    setIsDownloading(false);
     setShowTagSuggestions(false);
     setIsHighResLoaded(false); // Reset loading state for new image
   }, [currentIndex]);
@@ -242,7 +250,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   // --- Actions ---
 
-  const handleDownload = async () => {
+  const handleDownload = async (e?: React.MouseEvent) => {
+    // 1. Remove focus to prevent sticky hover state on mobile
+    if (e?.currentTarget instanceof HTMLElement) {
+        e.currentTarget.blur();
+    }
+
     if (currentItem.sizeBytes && currentItem.sizeBytes > MAX_VIDEO_SIZE) {
         setIsSizeAlertOpen(true);
         return;
@@ -251,14 +264,46 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     const url = currentItem.fullUrl || currentItem.url;
     if (!url) return;
 
+    setIsDownloading(true);
+
+    // Calculate filename
+    const ext = currentItem.type === ItemType.VIDEO ? 'mp4' : 'jpg';
+    // Use title if available, otherwise default to ID based
+    const fileName = currentItem.title
+        ? (currentItem.title.endsWith(`.${ext}`) ? currentItem.title : `${currentItem.title}.${ext}`)
+        : `download-${currentItem.id}.${ext}`;
+
+    // TELEGRAM MINI APP NATIVE DOWNLOAD (v6.4+)
+    if (inTelegram && webApp && webApp.downloadFile) {
+        try {
+            webApp.downloadFile({
+                url: url,
+                file_name: fileName
+            }, () => {
+                // Callback called when request processed (accepted)
+                setIsDownloading(false);
+            });
+
+            // Safety timeout in case callback is flaky
+            setTimeout(() => {
+                setIsDownloading(prev => prev ? false : prev);
+            }, 1000);
+
+            return;
+        } catch (e) {
+            console.warn("Telegram downloadFile failed, falling back to browser download", e);
+            // Fallback continues below
+        }
+    }
+
+    // STANDARD BROWSER DOWNLOAD
     try {
       const response = await fetch(url);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      const ext = currentItem.type === ItemType.VIDEO ? 'mp4' : 'jpg';
-      a.download = `download-${currentItem.id}.${ext}`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -266,14 +311,33 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     } catch (e) {
       console.error("Download failed", e);
       window.open(url, '_blank');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const handleShare = async () => {
     setIsSharing(true);
     try {
-        await api.sendToTelegram([currentItem]); // Now pass array
-        setSnackbar({ open: true, message: STRINGS.IMAGE_VIEWER.SNACKBAR_SENT, type: 'success' });
+        if (inTelegram && webApp && webApp.shareMessage) {
+            // NATIVE TELEGRAM SHARE
+            if (!currentItem.storageId) {
+                throw new Error("Cannot share: Missing File ID");
+            }
+            // 1. Get prepared message ID from our backend
+            const msgId = await api.shareItem(currentItem.storageId, currentItem.type);
+
+            // 2. Open native sharing dialog
+            if (msgId) {
+                webApp.shareMessage(msgId);
+                // We don't get a success callback for the actual share action from shareMessage,
+                // so we just assume the dialog opened successfully.
+            }
+        } else {
+            // FALLBACK / BROWSER (Send to Saved Messages via Bot)
+            await api.sendToTelegram([currentItem]); // Now pass array
+            setSnackbar({ open: true, message: STRINGS.IMAGE_VIEWER.SNACKBAR_SENT, type: 'success' });
+        }
     } catch (e: any) {
         console.error("Share failed", e);
         setSnackbar({ open: true, message: e.message || STRINGS.IMAGE_VIEWER.SNACKBAR_SEND_FAIL, type: 'error' });
@@ -627,8 +691,16 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                 )}
               </button>
 
-              <button onClick={handleDownload} className="text-white hover:opacity-70 drop-shadow-md p-0">
-                <DownloadIcon className="w-7 h-7" />
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="text-white hover:opacity-70 drop-shadow-md p-0 disabled:opacity-50"
+              >
+                {isDownloading ? (
+                   <div className="w-7 h-7 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                   <DownloadIcon className="w-7 h-7" />
+                )}
               </button>
               <button onClick={() => onMoveToFolder(currentItem.id)} className="text-white hover:opacity-70 drop-shadow-md p-0">
                 <MoveToFolderIcon className="w-7 h-7" />
@@ -735,13 +807,13 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       {/* --- Desktop Arrows --- */}
       {showControls && !isExtraMode && (
         <>
-          <button 
+          <button
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white hidden md:block z-50 p-2"
             onClick={(e) => { e.stopPropagation(); handlePrev(); }}
           >
             <ChevronLeftIcon className="w-10 h-10" />
           </button>
-          <button 
+          <button
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white hidden md:block z-50 p-2"
             onClick={(e) => { e.stopPropagation(); handleNext(); }}
           >
@@ -751,7 +823,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       )}
 
       {/* Confirmation Modal */}
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={isConfirmDeleteOpen}
         title={STRINGS.MODAL_CONFIRM_DELETE_FILE.TITLE}
         message={STRINGS.MODAL_CONFIRM_DELETE_FILE.MESSAGE}
@@ -761,7 +833,7 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
       />
 
       {/* Size Alert Modal */}
-      <AlertModal 
+      <AlertModal
         isOpen={isSizeAlertOpen}
         title={STRINGS.MODAL_ALERT_SIZE.TITLE}
         message={STRINGS.MODAL_ALERT_SIZE.MESSAGE}

@@ -178,5 +178,10 @@ export const mockApi: GalleryApi = {
     if (Math.random() > 0.8) {
         throw new Error("Random mock error: Could not send to Telegram");
     }
+  },
+
+  async shareItem(storageId: string, itemType: ItemType): Promise<string | null> {
+    await delay(500);
+    return `mock_msg_id_${storageId}_${Date.now()}`;
   }
 };
