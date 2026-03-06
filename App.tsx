@@ -132,7 +132,12 @@ function App() {
   };
 
   const visibleMedia = useMemo(() => {
-    return items.filter(item => item.type === ItemType.IMAGE || item.type === ItemType.VIDEO);
+    return items.filter(item =>
+      item.type === ItemType.IMAGE ||
+      item.type === ItemType.VIDEO ||
+      item.type === ItemType.AUDIO ||
+      item.type === ItemType.DOCUMENT
+    );
   }, [items]);
 
   const filteredTags = useMemo(() => {

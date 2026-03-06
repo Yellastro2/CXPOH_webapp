@@ -2,7 +2,9 @@
 export enum ItemType {
   FOLDER = 'FOLDER',
   IMAGE = 'IMAGE',
-  VIDEO = 'VIDEO'
+  VIDEO = 'VIDEO',
+  AUDIO = 'AUDIO',
+  DOCUMENT = 'DOCUMENT'
 }
 
 export interface Tag {
@@ -13,17 +15,21 @@ export interface Tag {
 export interface GalleryItem {
   id: string;
   type: ItemType;
-  title?: string; // For folders
+  title?: string; // For folders or audio/video title
   url?: string;   // For images/videos (Preview variant)
   fullUrl?: string; // For images/videos (Full variant)
   createdAt: number;
   parentId?: string; // ID of the folder containing this item
-  
+
   // Metadata
   storageId?: string; // Internal Backend ID needed for API operations
   sizeBytes?: number;
   tags?: string[]; // Array of tag IDs
   comment?: string;
+
+  // Media specific
+  durationSeconds?: number;
+  artist?: string;
 }
 
 export interface GalleryApi {

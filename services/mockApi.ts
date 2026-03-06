@@ -41,16 +41,27 @@ let mockDb: GalleryItem[] = [
   ...Array.from({ length: 12 }, (_, i) => {
     const url = getRandomImage();
     const isVideo = i === 3 || i === 7; // Mock videos at specific indices
+    const isAudio = i === 5 || i === 9; // Mock audio at specific indices
+    const isDoc = i === 2 || i === 8; // Mock documents at specific indices
+
+    let type = ItemType.IMAGE;
+    if (isVideo) type = ItemType.VIDEO;
+    if (isAudio) type = ItemType.AUDIO;
+    if (isDoc) type = ItemType.DOCUMENT;
+
     return {
       id: generateId(),
-      type: isVideo ? ItemType.VIDEO : ItemType.IMAGE,
-      url: url, // Preview is always an image
-      fullUrl: isVideo ? MOCK_VIDEO_URL : url, // Full URL is video for video types
+      type: type,
+      url: (isAudio || isDoc) ? undefined : url, // Preview is always an image unless audio/doc
+      fullUrl: isVideo ? MOCK_VIDEO_URL : ((isAudio || isDoc) ? undefined : url), // Full URL is video for video types
+      title: isAudio ? `Audio Track ${i}` : (isDoc ? `Document_Report_${i}.pdf` : `Image ${i}`),
+      artist: isAudio ? `Artist ${i}` : undefined,
       createdAt: Date.now(),
       tags: i % 2 === 0 ? ['tag1'] : ['tag2', 'tag3'],
       comment: isVideo ? "Check out this cool video!" : (i % 3 === 0 ? "This is a sample comment for the photo." : undefined),
-      sizeBytes: isVideo ? 15 * 1024 * 1024 : 1024 * 500, // 15MB video, 500KB image
-      storageId: `storage_${i}`
+      sizeBytes: isVideo ? 15 * 1024 * 1024 : (isAudio ? 5 * 1024 * 1024 : (isDoc ? 2.5 * 1024 * 1024 : 1024 * 500)),
+      storageId: `storage_${i}`,
+      durationSeconds: isVideo ? 125 : (isAudio ? 180 + i * 10 : undefined) // Mock duration
     };
   })
 ];

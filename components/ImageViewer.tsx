@@ -4,7 +4,7 @@ import { GalleryItem, ItemType } from '../types';
 import { 
   CloseIcon, ChevronLeftIcon, ChevronRightIcon, MoveToFolderIcon, 
   TrashIcon, DownloadIcon, ExtraIcon, CheckIcon, PlayIcon, PauseIcon,
-  SpeakerWaveIcon, SpeakerXMarkIcon, ArrowPathIcon, ShareIcon
+  SpeakerWaveIcon, SpeakerXMarkIcon, ArrowPathIcon, ShareIcon, MusicalNoteIcon, DocumentIcon
 } from './Icons';
 import { api } from '../services/api';
 import { ConfirmModal } from './ConfirmModal';
@@ -22,6 +22,30 @@ interface ImageViewerProps {
   onItemUpdate: (item: GalleryItem) => void;
   onItemDelete: (itemId: string) => void;
 }
+
+const formatDuration = (seconds?: number) => {
+  if (seconds === undefined || seconds === null) return '';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+
+  const mStr = m < 10 && h > 0 ? `0${m}` : `${m}`;
+  const sStr = s < 10 ? `0${s}` : `${s}`;
+
+  if (h > 0) {
+    return `${h}:${mStr}:${sStr}`;
+  }
+  return `${mStr}:${sStr}`;
+};
+
+const formatSize = (bytes?: number) => {
+  if (bytes === undefined || bytes === null) return '';
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
   images, initialIndex, onClose, onMoveToFolder, tagsMap, onItemUpdate, onItemDelete
@@ -265,13 +289,25 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (!url) return;
 
     setIsDownloading(true);
-
+    const ext = {
+      [ItemType.VIDEO]: 'mp4',
+      [ItemType.IMAGE]: 'jpg',
+      [ItemType.AUDIO]: 'mp3',
+      [ItemType.DOCUMENT]:   'doc',
+      [ItemType.FOLDER]: ''
+    }[currentItem.type];
     // Calculate filename
-    const ext = currentItem.type === ItemType.VIDEO ? 'mp4' : 'jpg';
+//     const ext = currentItem.type === ItemType.VIDEO ? 'mp4' : 'jpg';
     // Use title if available, otherwise default to ID based
-    const fileName = currentItem.title
-        ? (currentItem.title.endsWith(`.${ext}`) ? currentItem.title : `${currentItem.title}.${ext}`)
-        : `download-${currentItem.id}.${ext}`;
+    // 1. Сначала определяем базу (название или запасной вариант с ID)
+    const baseName = currentItem.title || `download-${currentItem.id}`;
+
+    // 2. Регулярка проверяет: есть ли в конце строки точка и от 1 до 5 символов (расширение)
+    // Пример: .mp3, .jpeg, .doc — подходят.
+    const hasAnyExtension = /\.[a-z0-9]{1,5}$/i.test(baseName);
+
+    // 3. Если расширение уже есть — оставляем как есть, если нет — добавляем наше
+    const fileName = hasAnyExtension ? baseName : `${baseName}.${ext}`;
 
     // TELEGRAM MINI APP NATIVE DOWNLOAD (v6.4+)
     if (inTelegram && webApp && webApp.downloadFile) {
@@ -471,6 +507,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   };
 
   const isVideo = currentItem.type === ItemType.VIDEO;
+  const isAudio = currentItem.type === ItemType.AUDIO;
+  const isDoc = currentItem.type === ItemType.DOCUMENT;
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col no-scrollbar">
@@ -606,27 +644,53 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
                     }}
                     onDoubleClick={handleDoubleTap}
                 >
-                     {/* Layer 1: Low Res Preview (Instant from previous slide cache) */}
-                     {currentItem.url && (
-                        <img
-                           src={currentItem.url}
-                           className="max-w-full max-h-full object-contain absolute z-0"
-                           alt="preview"
-                           draggable={false}
-                        />
-                     )}
+                     {isAudio || isDoc ? (
+                        <div className="flex flex-col items-center justify-center p-4 text-center select-none">
+                             {isAudio ? (
+                                <MusicalNoteIcon className="w-24 h-24 text-white/50 mb-4" />
+                             ) : (
+                                <DocumentIcon className="w-24 h-24 text-white/50 mb-4" />
+                             )}
+                             <div className="text-white text-xl font-bold mb-1 max-w-md break-words">{currentItem.title || currentItem.id}</div>
+                             {isAudio && currentItem.artist && <div className="text-white/70 text-lg">{currentItem.artist}</div>}
 
-                     {/* Layer 2: High Res (Fades in) */}
-                     {/* Key is crucial here to force unmount of previous image texture */}
-                     {!isVideo && currentItem.fullUrl && (
-                        <img
-                            key={currentItem.id}
-                            src={currentItem.fullUrl}
-                            className={`max-w-full max-h-full object-contain absolute z-10 transition-opacity duration-300 ${isHighResLoaded ? 'opacity-100' : 'opacity-0'}`}
-                            alt="full"
-                            draggable={false}
-                            onLoad={() => setIsHighResLoaded(true)}
-                        />
+                             {isAudio && currentItem.durationSeconds !== undefined && currentItem.durationSeconds > 0 && (
+                                <div className="mt-4 bg-white/10 px-3 py-1 rounded-full font-mono text-sm text-white/90">
+                                    {formatDuration(currentItem.durationSeconds)}
+                                </div>
+                             )}
+
+                             {isDoc && currentItem.sizeBytes !== undefined && currentItem.sizeBytes > 0 && (
+                                <div className="mt-4 bg-white/10 px-3 py-1 rounded-full font-mono text-sm text-white/90">
+                                    {formatSize(currentItem.sizeBytes)}
+                                </div>
+                             )}
+                        </div>
+                     ) : (
+                        <>
+                             {/* Layer 1: Low Res Preview (Instant from previous slide cache) */}
+                             {currentItem.url && (
+                                <img
+                                   src={currentItem.url}
+                                   className="max-w-full max-h-full object-contain absolute z-0"
+                                   alt="preview"
+                                   draggable={false}
+                                />
+                             )}
+
+                             {/* Layer 2: High Res (Fades in) */}
+                             {/* Key is crucial here to force unmount of previous image texture */}
+                             {!isVideo && currentItem.fullUrl && (
+                                <img
+                                    key={currentItem.id}
+                                    src={currentItem.fullUrl}
+                                    className={`max-w-full max-h-full object-contain absolute z-10 transition-opacity duration-300 ${isHighResLoaded ? 'opacity-100' : 'opacity-0'}`}
+                                    alt="full"
+                                    draggable={false}
+                                    onLoad={() => setIsHighResLoaded(true)}
+                                />
+                             )}
+                        </>
                      )}
 
                     {isVideo && !isExtraMode && (

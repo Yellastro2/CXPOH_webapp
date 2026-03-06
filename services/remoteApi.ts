@@ -26,24 +26,29 @@ interface BackendItem {
   id: string;
   name: string;
   type: 'FILE' | 'FOLDER';
-  fileType?: 'IMAGE' | 'VIDEO'; // New field
+  fileType?: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOC'; // New field
   storageId?: string | null;
   sizeBytes?: number;
   tags?: string[];
   comment?: string;
+  durationSeconds?: number;
+  title?: string;
+  artist?: string;
 }
 
 const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
   const isFolder = item.type === 'FOLDER';
   const isVideo = item.fileType === 'VIDEO';
-  
+  const isAudio = item.fileType === 'AUDIO';
+  const isDoc = item.fileType === 'DOC';
+
   let previewUrl = undefined;
   let fullUrl = undefined;
 
   if (!isFolder && item.storageId) {
     const initData = getInitData();
     const baseUrl = `${API_BASE}/api/telegram/image`;
-    
+
     // Construct params for Preview
     const previewParams = new URLSearchParams({
       storageId: item.storageId,
@@ -73,20 +78,26 @@ const mapBackendToFrontend = (item: BackendItem): GalleryItem => {
     itemType = ItemType.FOLDER;
   } else if (isVideo) {
     itemType = ItemType.VIDEO;
+  } else if (isAudio) {
+    itemType = ItemType.AUDIO;
+  } else if (isDoc) {
+    itemType = ItemType.DOCUMENT;
   }
 
   return {
     id: item.id,
     type: itemType,
-    title: item.name,
+    title: item.title || item.name, // Prefer title (metadata) over name (filename)
     url: previewUrl, // Default URL is used for grid preview (for video it's the thumbnail)
     fullUrl: fullUrl, // Full URL is used for full screen viewer (for video it's the thumbnail for now)
-    createdAt: 0, 
+    createdAt: 0,
     parentId: undefined,
     storageId: item.storageId || undefined, // Map storageId for operations
     sizeBytes: item.sizeBytes, // Map sizeBytes
     tags: item.tags,
-    comment: item.comment
+    comment: item.comment,
+    durationSeconds: item.durationSeconds,
+    artist: item.artist
   };
 };
 
@@ -95,7 +106,7 @@ export const remoteApi: GalleryApi = {
     const userId = getUserId();
     const initData = getInitData();
     const url = new URL(`${API_BASE}/api/folders/content`, window.location.origin);
-    
+
     url.searchParams.append('userId', userId);
     if (parentId) {
       url.searchParams.append('parentId', parentId);
