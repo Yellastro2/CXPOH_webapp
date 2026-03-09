@@ -236,16 +236,48 @@ export const remoteApi: GalleryApi = {
   },
 
   async uploadFile(file: File, parentId?: string): Promise<GalleryItem> {
-    console.warn('[RemoteAPI] Direct file upload from browser is not supported by the current API spec.');
+    const userId = getUserId();
+    const initData = getInitData();
+    const url = `${API_BASE}/api/telegram/upload`;
 
-    // Stub for UI responsiveness
+    const formData = new FormData();
+    formData.append('userId', userId);
+    formData.append('file', file);
+    if (parentId) {
+      formData.append('parentId', parentId);
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-Telegram-Init-Data': initData
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to upload file: ${response.statusText}`);
+    }
+
+    const resData = await response.json();
+
+    let type = ItemType.DOCUMENT;
+    if (file.type.startsWith('image/')) type = ItemType.IMAGE;
+    else if (file.type.startsWith('video/')) type = ItemType.VIDEO;
+    else if (file.type.startsWith('audio/')) type = ItemType.AUDIO;
+
+    // Return a temporary item to update the UI immediately.
+    // The actual item will be fetched from the server on the next loadItems call.
     return {
-      id: 'temp_' + Date.now(),
-      type: ItemType.IMAGE, // Default stub type
-      url: URL.createObjectURL(file),
+      id: resData.fileUniqueId || 'temp_' + Date.now(),
+      type: type,
       title: file.name,
       createdAt: Date.now(),
-      parentId: parentId
+      parentId: parentId,
+      storageId: resData.fileId,
+      sizeBytes: resData.fileSize || file.size,
+      url: (type === ItemType.AUDIO || type === ItemType.DOCUMENT) ? undefined : URL.createObjectURL(file),
+      fullUrl: (type === ItemType.AUDIO || type === ItemType.DOCUMENT) ? undefined : URL.createObjectURL(file),
     };
   },
 

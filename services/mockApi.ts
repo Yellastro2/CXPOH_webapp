@@ -107,11 +107,17 @@ export const mockApi: GalleryApi = {
   async uploadFile(file: File, parentId?: string): Promise<GalleryItem> {
     await delay(500); // Simulate upload time
     const url = URL.createObjectURL(file);
+
+    let type = ItemType.DOCUMENT;
+    if (file.type.startsWith('image/')) type = ItemType.IMAGE;
+    else if (file.type.startsWith('video/')) type = ItemType.VIDEO;
+    else if (file.type.startsWith('audio/')) type = ItemType.AUDIO;
+
     const newItem: GalleryItem = {
       id: generateId(),
-      type: ItemType.IMAGE,
-      url: url,
-      fullUrl: url,
+      type: type,
+      url: (type === ItemType.AUDIO || type === ItemType.DOCUMENT) ? undefined : url,
+      fullUrl: (type === ItemType.AUDIO || type === ItemType.DOCUMENT) ? undefined : url,
       title: file.name,
       createdAt: Date.now(),
       parentId: parentId,

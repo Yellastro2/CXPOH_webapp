@@ -6,10 +6,11 @@ import { ImageViewer } from './components/ImageViewer';
 import { FolderPicker } from './components/FolderPicker';
 import { DeleteFolderModal } from './components/DeleteFolderModal';
 import { ConfirmModal } from './components/ConfirmModal';
+import { AlertModal } from './components/AlertModal';
 import { Snackbar } from './components/Snackbar';
 import {
   PlusIcon, PhotoIcon, ChevronLeftIcon, SearchIcon, TrashIcon,
-  DownloadIcon, MoveToFolderIcon, ShareIcon
+  DownloadIcon, MoveToFolderIcon, ShareIcon, UploadIcon
 } from './components/Icons';
 import { api } from './services/api';
 import { GalleryItem, ItemType } from './types';
@@ -32,6 +33,8 @@ function App() {
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
   const [isFolderDeleteModalOpen, setIsFolderDeleteModalOpen] = useState(false);
   const [isConfirmDeleteFilesOpen, setIsConfirmDeleteFilesOpen] = useState(false);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [alertModalContent, setAlertModalContent] = useState({ title: '', message: '' });
 
   // Action Loading States
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
@@ -154,10 +157,31 @@ function App() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+
+    const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+    const validFiles: File[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].size > MAX_SIZE) {
+        setAlertModalContent({
+          title: STRINGS.MODAL_ALERT_SIZE.TITLE,
+          message: STRINGS.MODAL_ALERT_SIZE.MESSAGE
+        });
+        setIsAlertModalOpen(true);
+      } else {
+        validFiles.push(files[i]);
+      }
+    }
+
+    if (validFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setLoading(true);
     try {
-      for (let i = 0; i < files.length; i++) {
-        await api.uploadFile(files[i], currentFolderId);
+      for (let i = 0; i < validFiles.length; i++) {
+        await api.uploadFile(validFiles[i], currentFolderId);
       }
       await loadItems();
     } catch (error) {
@@ -391,7 +415,6 @@ function App() {
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
-        accept="image/*"
         multiple
       />
 
@@ -510,6 +533,13 @@ function App() {
                 >
                   <PlusIcon className="w-7 h-7" />
                 </button>
+                <button
+                  onClick={handleUploadClick}
+                  disabled={loading}
+                  className="text-tg-accent hover:opacity-70 active:opacity-50 transition-opacity p-2 disabled:opacity-30"
+                >
+                  <UploadIcon className="w-6 h-6" />
+                </button>
               </div>
             </>
           )}
@@ -571,6 +601,13 @@ function App() {
         onConfirm={() => handleDeleteConfirm(false)}
         onCancel={() => setIsConfirmDeleteFilesOpen(false)}
         isLoading={isDeletingFiles}
+      />
+
+      <AlertModal
+        isOpen={isAlertModalOpen}
+        title={alertModalContent.title}
+        message={alertModalContent.message}
+        onClose={() => setIsAlertModalOpen(false)}
       />
 
       {viewingImageIndex !== null && visibleMedia.length > 0 && (

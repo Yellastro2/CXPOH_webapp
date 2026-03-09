@@ -289,12 +289,14 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     if (!url) return;
 
     setIsDownloading(true);
+
+
     const ext = {
       [ItemType.VIDEO]: 'mp4',
       [ItemType.IMAGE]: 'jpg',
       [ItemType.AUDIO]: 'mp3',
-      [ItemType.DOCUMENT]:   'doc',
-      [ItemType.FOLDER]: ''
+      [ItemType.DOCUMENT]: 'doc',
+      [ItemType.FOLDER]: '' // Should not happen in ImageViewer
     }[currentItem.type];
     // Calculate filename
 //     const ext = currentItem.type === ItemType.VIDEO ? 'mp4' : 'jpg';
